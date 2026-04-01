@@ -39,7 +39,7 @@ CarCloner::CarCloner() : BaseApp() {
     metadata.description = "Automotive RF Security Research Tool";
     metadata.category = CATEGORY_TOOLS;
     metadata.icon = car_cloner_icon;
-    metadata.maxMemory = 48000; // 48KB
+    metadata.memoryRequirement = 48000; // 48KB
     metadata.requiresSD = true;
     metadata.requiresWiFi = false;
     metadata.requiresBLE = false;

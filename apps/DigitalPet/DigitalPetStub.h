@@ -101,7 +101,7 @@ public:
         displayManager.drawRetroRect(petX, petY, 32, 32, COLOR_WHITE, false);
         
         // Eyes based on mood
-        uint16_t eyeColor = (pet.mood > 50) ? COLOR_GREEN : COLOR_RED;
+        uint16_t eyeColor = (pet.mood > 50) ? COLOR_GREEN_PHOS : COLOR_RED_GLOW;
         displayManager.drawPixel(petX + 8, petY + 10, eyeColor);
         displayManager.drawPixel(petX + 24, petY + 10, eyeColor);
         
@@ -116,45 +116,42 @@ public:
         displayManager.drawText(20, 140, "Hunger: " + String(pet.hunger), COLOR_WHITE);
         displayManager.drawText(20, 160, "Happy: " + String(pet.happiness), COLOR_WHITE);
         
-        // Action buttons
-        String actions[] = {"Feed", "Pet", "Play", "Exit"};
+        // Action buttons - evenly spaced across 320px
+        const char* actions[] = {"Feed", "Pet", "Play", "Exit"};
         for (int i = 0; i < 4; i++) {
             uint16_t color = (i == selectedAction) ? COLOR_RED_GLOW : COLOR_WHITE;
-            displayManager.drawText(20 + i * 60, 200, actions[i], color);
+            displayManager.drawText(20 + i * 72, 200, actions[i], color);
         }
     }
     
     bool handleTouch(TouchPoint touch) override {
-        if (touch.isNewPress) {
-            // Simple touch zones for actions
-            if (touch.y > 190) {
-                int action = touch.x / 60;
-                if (action >= 0 && action < 4) {
-                    selectedAction = action;
-                    
-                    unsigned long now = millis();
-                    switch (action) {
-                        case 0: // Feed
-                            pet.hunger = max(0, pet.hunger - 20);
-                            pet.lastFed = now;
-                            pet.happiness = min(100, pet.happiness + 5);
-                            break;
-                        case 1: // Pet
-                            pet.happiness = min(100, pet.happiness + 10);
-                            pet.mood = min(100, pet.mood + 5);
-                            pet.lastPet = now;
-                            break;
-                        case 2: // Play
-                            pet.happiness = min(100, pet.happiness + 15);
-                            pet.hunger = min(100, pet.hunger + 5);
-                            break;
-                        case 3: // Exit
-                            savePetData();
-                            return false;
-                    }
+        if (!touch.isNewPress) return true;
+        
+        if (touch.y > 190) {
+            int action = touch.x / 80;
+            if (action > 3) action = 3;
+            selectedAction = action;
+            unsigned long now = millis();
+            switch (action) {
+                case 0: // Feed
+                    pet.hunger = max(0, pet.hunger - 20);
+                    pet.lastFed = now;
+                    pet.happiness = min(100, pet.happiness + 5);
+                    break;
+                case 1: // Pet
+                    pet.happiness = min(100, pet.happiness + 10);
+                    pet.mood = min(100, pet.mood + 5);
+                    pet.lastPet = now;
+                    break;
+                case 2: // Play
+                    pet.happiness = min(100, pet.happiness + 15);
+                    pet.hunger = min(100, pet.hunger + 5);
+                    break;
+                case 3: // Exit
                     savePetData();
-                }
+                    return false;
             }
+            savePetData();
         }
         return true;
     }

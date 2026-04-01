@@ -106,7 +106,7 @@ BLEScanner::BLEScanner() : BaseApp() {
     metadata.description = "Advanced BLE device scanner with anomaly detection";
     metadata.category = CATEGORY_TOOLS;
     metadata.icon = ble_scanner_icon;
-    metadata.maxMemory = 65536; // 64KB
+    metadata.memoryRequirement = 65536; // 64KB
     metadata.requiresSD = true;
     metadata.requiresWiFi = false;
     metadata.requiresBLE = true;

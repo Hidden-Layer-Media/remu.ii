@@ -35,7 +35,7 @@ WiFiToolsApp::WiFiToolsApp() :
     metadata.author = "remu.ii";
     metadata.description = "WiFi security analysis tools";
     metadata.category = CATEGORY_TOOLS;
-    metadata.maxMemory = 20000; // 20KB for network data
+    metadata.memoryRequirement = 20000; // 20KB for network data
     metadata.requiresSD = true;
     metadata.requiresWiFi = true;
     metadata.requiresBLE = false;

@@ -21,7 +21,7 @@ DigitalPetApp::DigitalPetApp() :
     metadata.author = "remu.ii";
     metadata.description = "Virtual pet companion";
     metadata.category = CATEGORY_GAMES;
-    metadata.maxMemory = 8192; // 8KB
+    metadata.memoryRequirement = 8192; // 8KB
     metadata.requiresSD = false;
     metadata.requiresWiFi = false;
     metadata.requiresBLE = false;

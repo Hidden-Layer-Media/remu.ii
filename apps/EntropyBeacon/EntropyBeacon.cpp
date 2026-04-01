@@ -1,11 +1,11 @@
 #include "EntropyBeacon.h"
 #include "../../core/SystemCore/SystemCore.h"
+#include "../../core/Config/hardware_pins.h"
 #include <math.h>
 
-// Pin definitions for entropy sources
-#define ENTROPY_PIN_1 A0
-#define ENTROPY_PIN_2 A1
-#define DAC_OUT_PIN 25
+// Use pin definitions from hardware_pins.h
+// ENTROPY_PIN_1 = 36, ENTROPY_PIN_2 = 39 (ADC1, always available)
+#define DAC_OUT_PIN 26  // Use GPIO26 (DAC1) - I2S_WS_PIN is only active when I2S is running
 
 // ========================================
 // ICON DATA
@@ -223,7 +223,7 @@ void EntropyBeaconApp::sampleEntropy() {
     updateStatistics(normalized);
     
     // Write to SD card if recording
-    if (recordingEnabled) {
+    if (viz.recordingEnabled) {
         writeDataToSD(entropyValue, normalized, isAnomaly);
     }
     
@@ -1634,14 +1634,6 @@ void EntropyBeaconApp::generateDACWaveform() {
     lastToneUpdate = millis();
 }
 
-void EntropyBeaconApp::outputToDAC(uint16_t value) {
-    // Clamp to 8-bit range
-    uint8_t dacValue = min(255, (int)value);
-    dacWrite(dacPin, dacValue);
-}
-
-float EntropyBeaconApp::applyFilter(float input, uint8_t filterType) {
-    static float lowPassState = 0.0f;
     static float highPassState = 0.0f;
     static float bandPassState1 = 0.0f;
     static float bandPassState2 = 0.0f;
@@ -1692,24 +1684,8 @@ float EntropyBeaconApp::applyFilter(float input, uint8_t filterType) {
 }
 
 void EntropyBeaconApp::outputToDAC(uint16_t value) {
-    // Clamp to 8-bit range
-    uint8_t dacValue = min(255, (int)value);
-    
-    // Output to primary DAC (left channel)
-    dacWrite(DAC_OUT_LEFT, dacValue);
-    
-    // If using differential output or stereo mode, output to right channel
-    if (viz.dacMode == DAC_MODULATED || viz.dacMode == DAC_TONE) {
-        // For modulated modes, output phase-shifted or complementary signal
-        uint8_t rightValue = dacValue;
-        
-        if (viz.dacMode == DAC_MODULATED) {
-            // Phase-shifted output for stereo effect
-            rightValue = 255 - dacValue; // Inverted signal
-        }
-        
-        dacWrite(DAC_OUT_RIGHT, rightValue);
-    }
+    uint8_t dacValue = (uint8_t)min(255, (int)value);
+    dacWrite(DAC_OUT_PIN, dacValue);
 }
 
 // ========================================
@@ -1766,25 +1742,6 @@ void EntropyBeaconApp::drawStatusBar() {
                            anomalyDetector.anomalyCount > 0 ? COLOR_RED_GLOW : COLOR_LIGHT_GRAY);
 }
 
-void EntropyBeaconApp::setupTouchZones() {
-    // Mode button
-    touchZones[0] = {5, 220, 30, 16, "mode", true};
-    
-    // Sample rate button
-    touchZones[1] = {40, 220, 30, 16, "rate", true};
-    
-    // DAC button
-    touchZones[2] = {75, 220, 30, 16, "dac", true};
-    
-    // Record button
-    touchZones[3] = {110, 220, 40, 16, "record", true};
-    
-    // Export button
-    touchZones[4] = {155, 220, 40, 16, "export", true};
-    
-    // Graph area for parameter adjustment
-    touchZones[5] = {GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, "graph", true};
-}
 
 void EntropyBeaconApp::handleControlTouch(TouchPoint touch) {
     // Enhanced touch handling with advanced entropy controls
@@ -2009,7 +1966,8 @@ bool EntropyBeaconApp::exportAdvancedAnalysis(String filename) {
     // Export comprehensive entropy analysis
     String fullPath = getAppDataPath() + "/" + filename;
     
-    File exportFile = filesystem.writeFile(fullPath, "");
+    filesystem.writeFile(fullPath, "");
+    File exportFile = SD.open(fullPath, FILE_WRITE);
     if (!exportFile) {
         debugLog("Failed to create analysis export: " + fullPath);
         return false;
@@ -2244,7 +2202,7 @@ void EntropyBeaconApp::logEntropyEvent(EntropyPoint& point) {
         if (entropyLog) entropyLog.close();
         
         String logPath = getAppDataPath() + "/entropy_system.log";
-        entropyLog = filesystem.appendFile(logPath, "");
+        entropyLog = SD.open(logPath, FILE_APPEND);
         
         if (entropyLog) {
             // Write log header if this is a new session
@@ -2316,7 +2274,7 @@ void EntropyBeaconApp::logSystemEvent(String level, String event, String details
         if (systemLog) systemLog.close();
         
         String logPath = getAppDataPath() + "/system_events.log";
-        systemLog = filesystem.appendFile(logPath, "");
+        systemLog = SD.open(logPath, FILE_APPEND);
         lastSystemLogTime = millis();
     }
     
@@ -2349,7 +2307,7 @@ void EntropyBeaconApp::logPerformanceMetrics() {
     if (!perfLog) {
         String logPath = getAppDataPath() + "/performance_metrics.csv";
         bool isNewFile = !filesystem.fileExists(logPath);
-        perfLog = filesystem.appendFile(logPath, "");
+        perfLog = SD.open(logPath, FILE_APPEND);
         
         if (perfLog && isNewFile) {
             // Write CSV header for new file
@@ -2417,7 +2375,7 @@ void EntropyBeaconApp::logConfigurationChange(String parameter, String oldValue,
     
     if (!configLog) {
         String logPath = getAppDataPath() + "/configuration_changes.log";
-        configLog = filesystem.appendFile(logPath, "");
+        configLog = SD.open(logPath, FILE_APPEND);
     }
     
     if (configLog) {
@@ -2494,7 +2452,8 @@ bool EntropyBeaconApp::saveConfigurationToFile(String filename) {
     genConfig["lorenz_rho"] = generators.lorenz.rho;
     genConfig["use_multiple_sources"] = generators.useMultipleSources;
     
-    File configFile = filesystem.writeFile(filename, "");
+    filesystem.writeFile(filename, "");
+    File configFile = SD.open(filename, FILE_WRITE);
     if (configFile) {
         serializeJsonPretty(config, configFile);
         configFile.close();
@@ -2506,7 +2465,8 @@ bool EntropyBeaconApp::saveConfigurationToFile(String filename) {
 
 bool EntropyBeaconApp::exportRecentData(String filename, uint16_t sampleCount) {
     // Export recent entropy data in CSV format
-    File dataFile = filesystem.writeFile(filename, "");
+    filesystem.writeFile(filename, "");
+    File dataFile = SD.open(filename, FILE_WRITE);
     if (!dataFile) return false;
     
     // Write enhanced CSV header

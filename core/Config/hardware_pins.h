@@ -33,26 +33,23 @@
 #define BATTERY_PIN 35   // ADC pin for battery voltage monitoring
 #define PWR_LED    17    // Power status LED (GPIO0 is boot pin - DO NOT USE)
 
-// Entropy Sources (floating analog pins)
-#define ENTROPY_PIN_1  36   // ADC1_CH0
-#define ENTROPY_PIN_2  39   // ADC1_CH3
-#define ENTROPY_PIN_3  34   // ADC1_CH6
+// Entropy Sources (floating analog pins) - all on ADC1, no overlap with touch pins
+#define ENTROPY_PIN_1  36   // ADC1_CH0 (input-only)
+#define ENTROPY_PIN_2  39   // ADC1_CH3 (input-only)
+#define ENTROPY_PIN_3  33   // ADC1_CH5 - shares with TOUCH_XM but only sampled when touch is idle
 
-// Audio Output - I2S (recommended for best quality)
+// Audio Output - I2S
 #define I2S_BCK_PIN   26    // I2S Bit Clock
 #define I2S_WS_PIN    25    // I2S Word Select (LRCLK)
-#define I2S_DATA_PIN  21    // I2S Data Output
-// NOTE: AUDIO_AMP_EN removed due to conflict with TOUCH_YP
+#define I2S_DATA_PIN  14    // I2S Data Output
 
-// Alternative: PWM Audio (backup option - mutually exclusive with I2S)
-// Uncomment ONLY if not using I2S audio
-// #define PWM_OUT_LEFT  26
-// #define PWM_OUT_RIGHT 25
+// DAC output pins (ESP32 has two 8-bit DAC channels)
+#define DAC_OUT_LEFT   25   // DAC1 - GPIO25
+#define DAC_OUT_RIGHT  26   // DAC2 - GPIO26 (also I2S_BCK when I2S active)
 
 // BLE/RF Pins (for external RF modules if needed)
 #define RF_CE_PIN     12    // RF module Chip Enable
-// NOTE: RF_CSN_PIN removed due to conflict with TOUCH_YM
-#define RF_IRQ_PIN    13    // RF module IRQ
+#define RF_IRQ_PIN    11    // RF module IRQ
 
 // System Control
 #define BUZZER_PIN    21    // Optional piezo buzzer

@@ -26,7 +26,7 @@ SequencerApp::SequencerApp() :
     metadata.author = "remu.ii";
     metadata.description = "8-track beat sequencer";
     metadata.category = CATEGORY_MEDIA;
-    metadata.maxMemory = 25000; // 25KB for audio buffers
+    metadata.memoryRequirement = 25000; // 25KB for audio buffers
     metadata.requiresSD = true;
     metadata.requiresBLE = false;
     metadata.requiresWiFi = false;

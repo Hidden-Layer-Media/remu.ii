@@ -99,12 +99,13 @@ AppManager::AppManager() :
     currentTransition(TRANSITION_NONE),
     transitionProgress(0),
     availableMemory(0),
-    memoryLimit(50000) // 50KB default limit
+    memoryLimit(50000)
 {
-    // Initialize app registry
     for (uint8_t i = 0; i < MAX_APPS; i++) {
         appRegistry[i] = {"", "", "", {}, nullptr, false, true, 0};
     }
+    // Initialise available memory now so hasEnoughMemoryForApp works before first checkMemoryUsage()
+    availableMemory = ESP.getFreeHeap();
 }
 
 AppManager::~AppManager() {
@@ -124,9 +125,9 @@ bool AppManager::initialize() {
     // Register built-in apps
     registerBuiltinApps();
     
-    // Calculate total pages for launcher
-    totalPages = (registeredAppCount + (LAUNCHER_GRID_COLS * LAUNCHER_GRID_ROWS) - 1) / 
-                 (LAUNCHER_GRID_COLS * LAUNCHER_GRID_ROWS);
+    // Calculate total pages (4 cols × 3 rows = 12 apps per page)
+    const uint8_t appsPerPage = 4 * 3;
+    totalPages = (registeredAppCount + appsPerPage - 1) / appsPerPage;
     if (totalPages == 0) totalPages = 1;
     
     // Show launcher initially
@@ -403,66 +404,54 @@ void AppManager::returnToLauncher() {
 
 void AppManager::drawLauncher() {
     switch (launcherState) {
-        case LAUNCHER_MAIN:
-            drawAppGrid();
-            break;
-        case LAUNCHER_MENU:
-            drawSystemMenu();
-            break;
-        case LAUNCHER_SETTINGS:
-            drawSettingsScreen();
-            break;
-        case LAUNCHER_INFO:
-            drawInfoScreen();
-            break;
-        case LAUNCHER_LOADING:
-            drawLoadingScreen();
-            break;
+        case LAUNCHER_MAIN:     drawAppGrid();      break;
+        case LAUNCHER_MENU:     drawSystemMenu();   break;
+        case LAUNCHER_SETTINGS: drawSettingsScreen(); break;
+        case LAUNCHER_INFO:     drawInfoScreen();   break;
+        case LAUNCHER_LOADING:  drawLoadingScreen(); break;
     }
-    
-    // Always draw status bar
     drawStatusBar();
 }
 
 void AppManager::drawAppGrid() {
+    static LauncherState lastState = LAUNCHER_LOADING; // force first draw
+    static uint8_t lastPage = 255;
+    
+    // Only redraw when something changed
+    if (lastState == launcherState && lastPage == launcherPage) return;
+    lastState = launcherState;
+    lastPage = launcherPage;
+    
     displayManager.clearScreen(COLOR_BLACK);
     
-    // Draw title
     displayManager.setFont(FONT_LARGE);
-    displayManager.drawTextCentered(0, 10, SCREEN_WIDTH, "remu.ii", COLOR_RED_GLOW);
+    displayManager.drawTextCentered(0, 5, SCREEN_WIDTH, "remu.ii", COLOR_RED_GLOW);
     
-    // Draw ASCII border
-    displayManager.drawASCIIBorder(10, 40, SCREEN_WIDTH - 20, SCREEN_HEIGHT - 80, COLOR_GREEN_PHOS);
+    // Grid: 4 columns, icon cell = 70px wide, 60px tall, starting at y=35
+    const uint8_t COLS = 4;
+    const int16_t CELL_W = 70;
+    const int16_t CELL_H = 60;
+    const int16_t GRID_X = (SCREEN_WIDTH - COLS * CELL_W) / 2; // centred
+    const int16_t GRID_Y = 35;
     
-    // Calculate grid layout
-    uint8_t startIndex = launcherPage * (LAUNCHER_GRID_COLS * LAUNCHER_GRID_ROWS);
-    uint8_t endIndex = min(startIndex + (LAUNCHER_GRID_COLS * LAUNCHER_GRID_ROWS), registeredAppCount);
+    uint8_t appsPerPage = COLS * 3; // 3 rows max
+    uint8_t startIndex = launcherPage * appsPerPage;
+    uint8_t endIndex = min((int)(startIndex + appsPerPage), (int)registeredAppCount);
     
-    int16_t gridX = 20;
-    int16_t gridY = 60;
-    int16_t iconSpacing = (SCREEN_WIDTH - 40) / LAUNCHER_GRID_COLS;
-    int16_t iconSize = min(iconSpacing - 10, LAUNCHER_ICON_SIZE);
-    
-    // Draw app icons
     for (uint8_t i = startIndex; i < endIndex; i++) {
         if (!appRegistry[i].isEnabled) continue;
-        
-        uint8_t gridPos = i - startIndex;
-        uint8_t col = gridPos % LAUNCHER_GRID_COLS;
-        uint8_t row = gridPos / LAUNCHER_GRID_COLS;
-        
-        int16_t x = gridX + col * iconSpacing;
-        int16_t y = gridY + row * (iconSize + 20);
-        
-        bool selected = (i == selectedAppIndex);
-        drawAppIcon(i, x, y, selected);
+        uint8_t pos = i - startIndex;
+        uint8_t col = pos % COLS;
+        uint8_t row = pos / COLS;
+        int16_t x = GRID_X + col * CELL_W + (CELL_W - 32) / 2;
+        int16_t y = GRID_Y + row * CELL_H;
+        drawAppIcon(i, x, y, i == selectedAppIndex);
     }
     
-    // Draw page indicator
     if (totalPages > 1) {
         displayManager.setFont(FONT_SMALL);
         String pageInfo = String(launcherPage + 1) + "/" + String(totalPages);
-        displayManager.drawTextCentered(0, SCREEN_HEIGHT - 25, SCREEN_WIDTH, pageInfo, COLOR_LIGHT_GRAY);
+        displayManager.drawTextCentered(0, SCREEN_HEIGHT - 12, SCREEN_WIDTH, pageInfo, COLOR_LIGHT_GRAY);
     }
 }
 
@@ -510,53 +499,50 @@ void AppManager::drawAppIcon(uint8_t appIndex, int16_t x, int16_t y, bool select
 }
 
 void AppManager::drawSystemMenu() {
-    displayManager.clearScreen(COLOR_BLACK);
+    static int8_t lastSelected = -1;
+    if (lastSelected == (int8_t)selectedAppIndex) return; // no redraw needed
+    lastSelected = selectedAppIndex;
     
-    // Draw menu title
+    displayManager.clearScreen(COLOR_BLACK);
     displayManager.setFont(FONT_MEDIUM);
     displayManager.drawTextCentered(0, 10, SCREEN_WIDTH, "SYSTEM MENU", COLOR_PURPLE_GLOW);
     
-    // Draw menu options
-    String menuItems[] = {
+    const char* menuItems[] = {
         "Settings",
-        "System Info", 
+        "System Info",
         "Memory Status",
         "Calibrate Touch",
         "Power Off",
         "Back to Apps"
     };
+    const uint8_t MENU_COUNT = 6;
     
-    int16_t menuY = 50;
-    for (uint8_t i = 0; i < 6; i++) {
+    for (uint8_t i = 0; i < MENU_COUNT; i++) {
         uint16_t color = (i == selectedAppIndex) ? COLOR_RED_GLOW : COLOR_WHITE;
         displayManager.setFont(FONT_MEDIUM);
-        displayManager.drawText(30, menuY + i * 25, menuItems[i], color);
-        
+        displayManager.drawText(30, 50 + i * 28, menuItems[i], color);
         if (i == selectedAppIndex) {
-            displayManager.drawText(10, menuY + i * 25, ">", COLOR_RED_GLOW);
+            displayManager.drawText(10, 50 + i * 28, ">", COLOR_RED_GLOW);
         }
     }
 }
 
 void AppManager::drawStatusBar() {
-    // Draw status bar at top
-    displayManager.drawRetroRect(0, 0, SCREEN_WIDTH, 20, COLOR_DARK_GRAY, true);
+    // Status bar at the bottom of the screen
+    const int16_t BAR_Y = SCREEN_HEIGHT - 20;
+    displayManager.drawRetroRect(0, BAR_Y, SCREEN_WIDTH, 20, COLOR_DARK_GRAY, true);
     
-    // Battery indicator
     uint8_t batteryLevel = systemCore.getBatteryPercentage();
     displayManager.setFont(FONT_SMALL);
-    String batteryText = String(batteryLevel) + "%";
-    displayManager.drawText(SCREEN_WIDTH - 30, 5, batteryText, COLOR_GREEN_PHOS);
+    displayManager.drawText(SCREEN_WIDTH - 30, BAR_Y + 6, String(batteryLevel) + "%", COLOR_GREEN_PHOS);
     
-    // Memory indicator
     size_t freeHeap = ESP.getFreeHeap();
-    String memText = String(freeHeap / 1024) + "K";
-    displayManager.drawText(SCREEN_WIDTH - 80, 5, memText, COLOR_GREEN_PHOS);
+    displayManager.drawText(SCREEN_WIDTH - 80, BAR_Y + 6, String(freeHeap / 1024) + "K", COLOR_GREEN_PHOS);
     
-    // Time indicator (uptime)
     unsigned long uptime = systemCore.getUptimeSeconds();
-    String timeText = String(uptime / 60) + ":" + String(uptime % 60);
-    displayManager.drawText(10, 5, timeText, COLOR_GREEN_PHOS);
+    char timeStr[8];
+    snprintf(timeStr, sizeof(timeStr), "%lu:%02lu", uptime / 60, uptime % 60);
+    displayManager.drawText(10, BAR_Y + 6, timeStr, COLOR_GREEN_PHOS);
 }
 
 bool AppManager::handleTouch(TouchPoint touch) {
@@ -617,20 +603,21 @@ void AppManager::handleAppGridTouch(TouchPoint touch) {
 }
 
 uint8_t AppManager::getTouchedAppIndex(TouchPoint touch) {
-    int16_t gridX = 20;
-    int16_t gridY = 60;
-    int16_t iconSpacing = (SCREEN_WIDTH - 40) / LAUNCHER_GRID_COLS;
+    const uint8_t COLS = 4;
+    const int16_t CELL_W = 70;
+    const int16_t CELL_H = 60;
+    const int16_t GRID_X = (SCREEN_WIDTH - COLS * CELL_W) / 2;
+    const int16_t GRID_Y = 35;
+    const uint8_t appsPerPage = COLS * 3;
     
-    if (touch.x < gridX || touch.y < gridY) return 255;
+    if (touch.x < GRID_X || touch.y < GRID_Y) return 255;
     
-    uint8_t col = (touch.x - gridX) / iconSpacing;
-    uint8_t row = (touch.y - gridY) / (64 + 20); // Icon size + spacing
+    uint8_t col = (touch.x - GRID_X) / CELL_W;
+    uint8_t row = (touch.y - GRID_Y) / CELL_H;
     
-    if (col >= LAUNCHER_GRID_COLS || row >= LAUNCHER_GRID_ROWS) return 255;
+    if (col >= COLS || row >= 3) return 255;
     
-    uint8_t index = launcherPage * (LAUNCHER_GRID_COLS * LAUNCHER_GRID_ROWS) + 
-                   row * LAUNCHER_GRID_COLS + col;
-    
+    uint8_t index = launcherPage * appsPerPage + row * COLS + col;
     return (index < registeredAppCount) ? index : 255;
 }
 
@@ -714,8 +701,25 @@ void AppManager::finishTransition() {
 }
 
 void AppManager::handleMenuTouch(TouchPoint touch) {
-    // Menu touch handling - placeholder
-    launcherState = LAUNCHER_MAIN;
+    if (!touch.isNewPress) return;
+    
+    // "Back to Apps" is item 5 (index 5), or any touch in its row
+    const int16_t MENU_Y = 50;
+    const int16_t ROW_H = 28;
+    const uint8_t MENU_COUNT = 6;
+    
+    if (touch.y >= MENU_Y && touch.y < MENU_Y + MENU_COUNT * ROW_H) {
+        uint8_t item = (touch.y - MENU_Y) / ROW_H;
+        selectedAppIndex = item;
+        if (item == 5) { // Back to Apps
+            selectedAppIndex = 0;
+            launcherState = LAUNCHER_MAIN;
+        }
+        // Force menu redraw by resetting static cache
+        // (handled by static lastSelected in drawSystemMenu)
+    } else {
+        launcherState = LAUNCHER_MAIN;
+    }
 }
 
 void AppManager::drawSettingsScreen() {

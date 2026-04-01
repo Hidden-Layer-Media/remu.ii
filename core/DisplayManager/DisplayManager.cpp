@@ -29,13 +29,11 @@ bool DisplayManager::initialize() {
     tft->setRotation(SCREEN_ROTATION);
     tft->fillScreen(COLOR_BLACK);
     
-    // Set initial font
+    // Mark initialized before drawing so helper methods work
+    initialized = true;
     setFont(FONT_MEDIUM);
-    
-    // Display boot logo (memory-optimized version)
     drawBootLogoOptimized();
     
-    initialized = true;
     Serial.println("[DisplayManager] Display initialized successfully");
     Serial.printf("[DisplayManager] Resolution: %dx%d\n", SCREEN_WIDTH, SCREEN_HEIGHT);
     Serial.printf("[DisplayManager] Free heap after init: %d bytes\n", ESP.getFreeHeap());

@@ -40,17 +40,16 @@ TouchInterface::~TouchInterface() {
 bool TouchInterface::initialize() {
     Serial.println("[TouchInterface] Initializing 4-wire resistive touch...");
     
-    // Configure touch pins
-    pinMode(TOUCH_XP, OUTPUT);
+    // TOUCH_YP (GPIO34) is input-only on ESP32 - never set as OUTPUT
+    // XP, XM, YM are bidirectional GPIOs
+    pinMode(TOUCH_XP, INPUT);
     pinMode(TOUCH_XM, OUTPUT);
-    pinMode(TOUCH_YP, INPUT);
-    pinMode(TOUCH_YM, INPUT);
+    pinMode(TOUCH_YM, OUTPUT);
+    // TOUCH_YP: input-only, no pinMode needed
     
-    // Set initial pin states
-    digitalWrite(TOUCH_XP, LOW);
     digitalWrite(TOUCH_XM, LOW);
+    digitalWrite(TOUCH_YM, LOW);
     
-    // Load calibration from EEPROM
     loadCalibration();
     
     Serial.println("[TouchInterface] Touch interface initialized");
@@ -72,47 +71,40 @@ void TouchInterface::update() {
 }
 
 void TouchInterface::shutdown() {
-    // Set all touch pins to input to save power
     pinMode(TOUCH_XP, INPUT);
     pinMode(TOUCH_XM, INPUT);
-    pinMode(TOUCH_YP, INPUT);
     pinMode(TOUCH_YM, INPUT);
-    
+    // TOUCH_YP (GPIO34) is always input-only
     Serial.println("[TouchInterface] Touch interface shutdown");
 }
 
 uint16_t TouchInterface::readTouchX() {
-    // Set up for X reading: XP and XM drive, YP reads
+    // Drive XP high, XM low; read on TOUCH_YP (input-only GPIO34)
     pinMode(TOUCH_XP, OUTPUT);
     pinMode(TOUCH_XM, OUTPUT);
-    pinMode(TOUCH_YP, INPUT);
+    // TOUCH_YP is input-only - leave as-is
     pinMode(TOUCH_YM, INPUT);
     
     digitalWrite(TOUCH_XP, HIGH);
     digitalWrite(TOUCH_XM, LOW);
     
-    delayMicroseconds(20); // Allow settling time
-    
-    uint16_t x = analogRead(TOUCH_YP);
-    
-    return x;
+    delayMicroseconds(20);
+    return analogRead(TOUCH_YP);
 }
 
 uint16_t TouchInterface::readTouchY() {
-    // Set up for Y reading: YP and YM drive, XP reads
-    pinMode(TOUCH_YP, OUTPUT);
+    // Drive YM low, XP high; read on TOUCH_XM (bidirectional)
+    // Cannot drive TOUCH_YP (GPIO34 input-only), so drive from XP side
+    pinMode(TOUCH_XP, OUTPUT);
     pinMode(TOUCH_YM, OUTPUT);
-    pinMode(TOUCH_XP, INPUT);
     pinMode(TOUCH_XM, INPUT);
+    // TOUCH_YP stays as input
     
-    digitalWrite(TOUCH_YP, HIGH);
+    digitalWrite(TOUCH_XP, HIGH);
     digitalWrite(TOUCH_YM, LOW);
     
-    delayMicroseconds(20); // Allow settling time
-    
-    uint16_t y = analogRead(TOUCH_XP);
-    
-    return y;
+    delayMicroseconds(20);
+    return analogRead(TOUCH_XM);
 }
 
 uint16_t TouchInterface::readTouchPressure() {

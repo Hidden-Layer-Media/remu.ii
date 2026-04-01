@@ -21,7 +21,7 @@ FreqScanner::FreqScanner() {
     metadata.description = "Spectrum analyzer with FFT processing";
     metadata.category = CATEGORY_TOOLS;
     metadata.icon = freq_scanner_icon;
-    metadata.maxMemory = 65536; // 64KB for FFT buffers
+    metadata.memoryRequirement = 65536; // 64KB for FFT buffers
     metadata.requiresSD = true;
     metadata.requiresWiFi = false;
     metadata.requiresBLE = false;

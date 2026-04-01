@@ -23,6 +23,9 @@
 #define COLOR_LIGHT_GRAY    0x8410  // #808080 - Disabled elements
 #define COLOR_BLUE_CYBER    0x001F  // #0000FF - Info accents
 #define COLOR_YELLOW        0xFFE0  // #FFFF00 - Warning/attention color
+#define COLOR_CYAN_GLOW     0x07FF  // #00FFFF - Cyan accent
+#define COLOR_ORANGE_GLOW   0xFD20  // #FF6600 - Orange accent
+#define COLOR_VERY_DARK_GRAY 0x0841 // #101010 - Near-black grid lines
 
 // UI element dimensions
 #define BUTTON_HEIGHT       24
@@ -35,6 +38,7 @@
 #define FONT_SMALL          1
 #define FONT_MEDIUM         2
 #define FONT_LARGE          3
+#define FONT_TINY           1  // Alias for FONT_SMALL (no smaller built-in font)
 
 // Button states
 enum ButtonState {
@@ -185,8 +189,25 @@ public:
     void drawPixel(int16_t x, int16_t y, uint16_t color);
     void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
     
+    // Raw Adafruit pass-throughs (for legacy app code that calls display methods directly)
+    void fillScreen(uint16_t color) { if (tft) tft->fillScreen(color); }
+    void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { if (tft) tft->fillRect(x, y, w, h, color); }
+    void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) { if (tft) tft->drawRect(x, y, w, h, color); }
+    void drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color) { if (tft) tft->drawTriangle(x0, y0, x1, y1, x2, y2, color); }
+    void setCursor(int16_t x, int16_t y) { if (tft) tft->setCursor(x, y); }
+    void setTextColor(uint16_t color) { if (tft) tft->setTextColor(color); }
+    void setTextColor(uint16_t fg, uint16_t bg) { if (tft) tft->setTextColor(fg, bg); }
+    void setTextSize(uint8_t size) { if (tft) tft->setTextSize(size); }
+    void print(const String& s) { if (tft) tft->print(s); }
+    void print(const char* s) { if (tft) tft->print(s); }
+    void print(int n) { if (tft) tft->print(n); }
+    void println(const String& s) { if (tft) tft->println(s); }
+    
     // Direct TFT access (use carefully)
     Adafruit_ILI9341* getTFT() { return tft; }
+    
+    // Singleton-style accessor for legacy app code
+    static DisplayManager& getInstance() { return displayManager; }
     
     // Screen dimensions
     int16_t getWidth() const { return SCREEN_WIDTH; }

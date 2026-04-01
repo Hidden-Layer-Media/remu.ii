@@ -214,7 +214,9 @@ uint32_t SystemCore::getRandomSeed() {
 
 uint8_t SystemCore::getRandomByte() {
     updateEntropy();
-    return entropyBuffer[entropyIndex];
+    // entropyIndex was incremented after the write, so read the slot just written
+    uint8_t idx = (entropyIndex == 0) ? ENTROPY_BUFFER_SIZE - 1 : entropyIndex - 1;
+    return entropyBuffer[idx];
 }
 
 uint16_t SystemCore::getRandomWord() {
