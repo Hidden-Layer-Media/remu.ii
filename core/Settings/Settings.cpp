@@ -532,3 +532,72 @@ void Settings::printSettings() {
         }
     }
 }
+
+bool Settings::validateSetting(const String& key, const Setting& setting) { return isValidKey(key); }
+bool Settings::createBackup() { return filesystem.copyFile(configPath, backupPath); }
+bool Settings::restoreBackup() { return filesystem.copyFile(backupPath, configPath) && loadSettings(); }
+bool Settings::unregisterSetting(const String& key) {
+    for (uint8_t i = 0; i < settingCount; i++) {
+        if (settings[i].key.equals(key)) {
+            for (uint8_t j = i; j < settingCount - 1; j++) settings[j] = settings[j+1];
+            settingCount--;
+            return true;
+        }
+    }
+    return false;
+}
+int Settings::getEnumIndex(const String& key, int defaultIndex) { return getInt(key, defaultIndex); }
+String Settings::getEnumValue(const String& key, const String& defaultValue) {
+    Setting* s = findSetting(key);
+    if (s && s->type == SETTING_ENUM && s->enumOptions && s->intValue < s->enumCount)
+        return s->enumOptions[s->intValue];
+    return defaultValue;
+}
+bool Settings::setEnumIndex(const String& key, int index) { return setInt(key, index); }
+bool Settings::setEnumValue(const String& key, const String& value) {
+    Setting* s = findSetting(key);
+    if (!s || s->type != SETTING_ENUM) return false;
+    for (uint8_t i = 0; i < s->enumCount; i++) {
+        if (s->enumOptions[i].equals(value)) return setInt(key, i);
+    }
+    return false;
+}
+SettingType Settings::getType(const String& key) {
+    Setting* s = findSetting(key);
+    return s ? s->type : SETTING_BOOL;
+}
+SettingCategory Settings::getCategory(const String& key) {
+    Setting* s = findSetting(key);
+    return s ? s->category : CATEGORY_SYSTEM;
+}
+String Settings::getName(const String& key) {
+    Setting* s = findSetting(key);
+    return s ? s->name : "";
+}
+String Settings::getDescription(const String& key) {
+    Setting* s = findSetting(key);
+    return s ? s->description : "";
+}
+bool Settings::needsRestart(const String& key) {
+    Setting* s = findSetting(key);
+    return s ? s->needsRestart : false;
+}
+bool Settings::isReadOnly(const String& key) {
+    Setting* s = findSetting(key);
+    return s ? s->isReadOnly : false;
+}
+uint8_t Settings::getSettingsInCategory(SettingCategory category, String* keys, uint8_t maxKeys) {
+    uint8_t count = 0;
+    for (uint8_t i = 0; i < settingCount && count < maxKeys; i++) {
+        if (settings[i].category == category) keys[count++] = settings[i].key;
+    }
+    return count;
+}
+uint8_t Settings::getAllSettings(String* keys, uint8_t maxKeys) {
+    uint8_t count = min(settingCount, maxKeys);
+    for (uint8_t i = 0; i < count; i++) keys[i] = settings[i].key;
+    return count;
+}
+String Settings::getSettingsInfo() {
+    return "Settings: " + String(settingCount) + "/" + String(maxSettings);
+}

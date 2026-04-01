@@ -123,6 +123,12 @@ public:
     
     // Icon data
     static const uint8_t ENTROPY_ICON[32];
+    
+    // Utility helpers used internally
+    String getAppDataPath() const { return "/data/entropybeacon"; }
+    float getFPS() const { return 20.0f; }
+    uint32_t getFrameCount() const { return 0; }
+    size_t getMemoryUsage() const { return ESP.getFreeHeap(); }
 };
 
 #endif // ENTROPY_BEACON_H

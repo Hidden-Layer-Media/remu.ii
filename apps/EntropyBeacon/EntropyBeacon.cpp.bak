@@ -1,25 +1,14 @@
 #include "EntropyBeacon.h"
 #include "../../core/SystemCore/SystemCore.h"
+#include "../../core/Config/hardware_pins.h"
 #include <math.h>
 
-// Pin definitions for entropy sources
-#define ENTROPY_PIN_1 A0
-#define ENTROPY_PIN_2 A1
-#define ENTROPY_PIN_3 A2
-#define DAC_OUT_LEFT 25   // ESP32 DAC1
-#define DAC_OUT_RIGHT 26  // ESP32 DAC2
-
-// Math constants
-#ifndef PI
-#define PI 3.14159265359f
-#endif
-
-#ifndef FLT_MAX
-#define FLT_MAX 3.402823466e+38F
-#endif
+// Use pin definitions from hardware_pins.h
+// ENTROPY_PIN_1 = 36, ENTROPY_PIN_2 = 39 (ADC1, always available)
+#define DAC_OUT_PIN 26  // Use GPIO26 (DAC1) - I2S_WS_PIN is only active when I2S is running
 
 // ========================================
-// ICON DATA AND CONSTANTS
+// ICON DATA
 // ========================================
 
 const uint8_t EntropyBeaconApp::ENTROPY_ICON[32] = {
@@ -34,18 +23,13 @@ const uint8_t EntropyBeaconApp::ENTROPY_ICON[32] = {
 
 EntropyBeaconApp::EntropyBeaconApp() :
     bufferIndex(0),
-    bufferFull(false),
     lastSampleTime(0),
     sampleInterval(1000), // 1ms default (1kHz)
-    dacEnabled(false),
-    dacPin(25), // ESP32 DAC1
-    selectedZone(-1)
+    dacEnabled(false)
 {
-    // Set app metadata using BaseApp methods
-    setMetadata("EntropyBeacon", "1.0", "remu.ii", "Real-time entropy visualization", CATEGORY_TOOLS, 30000);
-    setRequirements(true, false, false); // Requires SD card
+    setMetadata("EntropyBeacon", "1.0", "remu.ii", "Real-time entropy visualization", CATEGORY_TOOLS, 20000);
+    setRequirements(false, false, false);
     
-    // Set colors
     backgroundColor = COLOR_BLACK;
     foregroundColor = COLOR_GREEN_PHOS;
     
@@ -55,32 +39,18 @@ EntropyBeaconApp::EntropyBeaconApp() :
     // Initialize visualization settings
     viz.mode = VIZ_OSCILLOSCOPE;
     viz.sampleRate = RATE_1KHZ;
-    viz.dacMode = DAC_OFF;
-    viz.timeScale = 1.0f;
     viz.amplitudeScale = 1.0f;
-    viz.triggerLevel = 128;
-    viz.autoScale = true;
-    viz.showGrid = true;
-    viz.persistence = 50;
-    viz.traceColors[0] = COLOR_GREEN_PHOS;
-    viz.traceColors[1] = COLOR_RED_GLOW;
-    viz.traceColors[2] = COLOR_PURPLE_GLOW;
-    viz.activeTraces = 0x01; // First trace active
-    viz.spectrumBars = 32;
-    viz.logScale = false;
-    viz.spectrumGain = 1.0f;
-    viz.recordingEnabled = false;
-    viz.recordStartTime = 0;
-    viz.samplesRecorded = 0;
+    viz.traceColor = COLOR_GREEN_PHOS;
     
-    // Initialize advanced entropy generators
-    initializeEntropyGenerators();
+    // Clear buffers
+    memset(entropyBuffer, 0, sizeof(entropyBuffer));
+    memset(spectrumData, 0, sizeof(spectrumData));
     
     // Initialize anomaly detector
-    initializeAnomalyDetector();
-    
-    // Initialize advanced anomaly detection
-    initializeAdvancedAnomalyDetection();
+    anomalyDetector.mean = 0.5f;
+    anomalyDetector.variance = 0.1f;
+    anomalyDetector.threshold = 2.0f;
+    anomalyDetector.anomalyCount = 0;
 }
 
 EntropyBeaconApp::~EntropyBeaconApp() {
@@ -94,34 +64,29 @@ EntropyBeaconApp::~EntropyBeaconApp() {
 bool EntropyBeaconApp::initialize() {
     debugLog("EntropyBeacon initializing...");
     
-    // Create app data directory if filesystem available
-    String appDir = "/apps/entropybeacon";
-    if (SD.exists("/apps") || SD.mkdir("/apps")) {
-        SD.mkdir(appDir.c_str());
+    // Create app data directory on SD card
+    String appDir = "/sd/apps/entropybeacon";
+    if (!SD.exists("/sd/apps")) {
+        SD.mkdir("/sd/apps");
     }
+    SD.mkdir(appDir.c_str());
+    
+    // Initialize recording paths
+    recordingPath = "/sd/apps/entropybeacon/entropy_data.csv";
+    configPath = "/sd/apps/entropybeacon/config.json";
+    logPath = "/sd/apps/entropybeacon/system.log";
     
     // Initialize DAC
-    pinMode(dacPin, OUTPUT);
-    dacWrite(dacPin, 0);
-    
-    // Clear buffers
-    memset(entropyBuffer, 0, sizeof(entropyBuffer));
-    memset(spectrumData, 0, sizeof(spectrumData));
-    memset(waterfallData, 0, sizeof(waterfallData));
-    memset(histogramBins, 0, sizeof(histogramBins));
-    memset(dacBuffer, 0, sizeof(dacBuffer));
-    
-    // Setup touch zones
-    setupTouchZones();
+    pinMode(DAC_OUT_PIN, OUTPUT);
+    dacWrite(DAC_OUT_PIN, 0);
     
     // Calculate sample interval
     calculateSampleInterval();
     
-    // Initialize recording path
-    recordingPath = "/apps/entropybeacon/entropy_data.csv";
+    // Load saved configuration
+    loadConfiguration();
     
     debugLog("EntropyBeacon initialized successfully");
-    
     return true;
 }
 
@@ -129,8 +94,6 @@ void EntropyBeaconApp::update() {
     if (currentState != APP_RUNNING) return;
     
     unsigned long currentTime = micros();
-    static unsigned long lastPerformanceCheck = 0;
-    static unsigned long lastBackupCheck = 0;
     
     // Sample entropy at specified rate
     if (currentTime - lastSampleTime >= sampleInterval) {
@@ -138,146 +101,9 @@ void EntropyBeaconApp::update() {
         lastSampleTime = currentTime;
     }
     
-    // Update DAC output if enabled (with performance optimization)
-    if (viz.dacMode != DAC_OFF) {
+    // Update DAC output if enabled
+    if (dacEnabled) {
         updateDACOutput();
-    }
-    
-    // Periodic performance monitoring (every 5 seconds)
-    if (millis() - lastPerformanceCheck > 5000) {
-        logPerformanceMetrics();
-        checkMemoryUsage();
-        lastPerformanceCheck = millis();
-    }
-    
-    // Periodic backup creation (every 30 minutes)
-    if (millis() - lastBackupCheck > 1800000) {
-        createPeriodicBackup();
-        lastBackupCheck = millis();
-    }
-    
-    frameCount++;
-}
-
-void EntropyBeaconApp::checkMemoryUsage() {
-    // Monitor memory usage and optimize if necessary
-    size_t currentMemory = ESP.getFreeHeap();
-    
-    if (currentMemory < 10000) { // Less than 10KB free
-        debugLog("WARNING: Low memory: " + String(currentMemory) + " bytes free");
-        optimizeMemoryUsage();
-    }
-}
-
-void EntropyBeaconApp::optimizeMemoryUsage() {
-    // Clear older waterfall data
-    memset(waterfallData, 0, sizeof(waterfallData) / 2);
-    
-    // Compress histogram data
-    for (uint16_t i = 0; i < 128; i++) {
-        histogramBins[i] = (histogramBins[i*2] + histogramBins[i*2+1]) / 2;
-        histogramBins[i+128] = 0;
-    }
-    
-    debugLog("Memory optimization performed");
-}
-
-void EntropyBeaconApp::optimizePerformance() {
-    // Performance optimization for real-time operation
-    
-    // Adjust sample rate based on system performance
-    float currentFPS = getFPS();
-    if (currentFPS < 10.0f) { // If FPS drops below 10
-        // Reduce computational load
-        if (viz.sampleRate > RATE_1KHZ) {
-            SampleRate oldRate = viz.sampleRate;
-            viz.sampleRate = (SampleRate)(viz.sampleRate / 2);
-            calculateSampleInterval();
-            
-            logConfigurationChange("sample_rate", String(oldRate), String(viz.sampleRate));
-            logSystemEvent("WARN", "Performance Optimization",
-                          "Reduced sample rate due to low FPS: " + String(currentFPS, 1));
-        }
-        
-        // Reduce FFT calculations
-        if (viz.mode == VIZ_SPECTRUM || viz.mode == VIZ_WATERFALL) {
-            viz.spectrumBars = min(16, viz.spectrumBars); // Reduce spectrum resolution
-        }
-    }
-    
-    // Optimize visualization updates based on mode
-    static uint8_t updateCounter = 0;
-    updateCounter++;
-    
-    switch (viz.mode) {
-        case VIZ_WATERFALL:
-            // Update waterfall every 4 frames to reduce load
-            if (updateCounter % 4 != 0) return;
-            break;
-            
-        case VIZ_SPECTRUM:
-            // Update spectrum every 2 frames
-            if (updateCounter % 2 != 0) return;
-            break;
-            
-        default:
-            // Other modes update every frame
-            break;
-    }
-}
-
-void EntropyBeaconApp::benchmarkPerformance() {
-    // Comprehensive performance benchmark
-    logSystemEvent("INFO", "Performance Benchmark", "Starting benchmark suite");
-    
-    unsigned long startTime = micros();
-    
-    // Benchmark entropy generation
-    uint32_t entropyBenchmark = 0;
-    for (int i = 0; i < 1000; i++) {
-        entropyBenchmark += generateChaoticCombined();
-    }
-    unsigned long entropyTime = micros() - startTime;
-    
-    // Benchmark mathematical analysis
-    startTime = micros();
-    uint16_t testData[100];
-    for (int i = 0; i < 100; i++) {
-        testData[i] = random(4096);
-    }
-    float shannonResult = calculateShannonEntropy(testData, 100);
-    float complexityResult = estimateKolmogorovComplexity(testData, 100);
-    unsigned long analysisTime = micros() - startTime;
-    
-    // Benchmark anomaly detection
-    startTime = micros();
-    for (int i = 0; i < 100; i++) {
-        float testValue = random(1000) / 1000.0f;
-        bool anomalyResult = isAnomaly(testValue);
-        updateAnomalyStats(testValue);
-    }
-    unsigned long anomalyTime = micros() - startTime;
-    
-    // Benchmark visualization (simulate)
-    startTime = micros();
-    performFFT();
-    updateAdvancedAnalysis();
-    unsigned long vizTime = micros() - startTime;
-    
-    // Log benchmark results
-    String benchmarkReport = "Entropy: " + String(entropyTime) + "μs, " +
-                           "Analysis: " + String(analysisTime) + "μs, " +
-                           "Anomaly: " + String(anomalyTime) + "μs, " +
-                           "Viz: " + String(vizTime) + "μs";
-    
-    logSystemEvent("INFO", "Benchmark Results", benchmarkReport);
-    
-    // Performance recommendations
-    if (entropyTime > 5000) {
-        logSystemEvent("WARN", "Performance Issue", "Entropy generation slow");
-    }
-    if (analysisTime > 10000) {
-        logSystemEvent("WARN", "Performance Issue", "Mathematical analysis slow");
     }
 }
 
@@ -287,8 +113,17 @@ void EntropyBeaconApp::render() {
     // Clear screen
     displayManager.clearScreen(backgroundColor);
     
-    // Draw interface
-    drawInterface();
+    // Draw title
+    displayManager.setFont(FONT_MEDIUM);
+    displayManager.drawText(5, 5, "Entropy Beacon", COLOR_RED_GLOW);
+    
+    // Draw mode indicator
+    String modeNames[] = {"OSC", "SPEC"};
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(150, 8, modeNames[viz.mode], COLOR_GREEN_PHOS);
+    
+    // Draw sample rate
+    displayManager.drawText(220, 8, String(viz.sampleRate) + "Hz", COLOR_WHITE);
     
     // Draw visualization based on current mode
     switch (viz.mode) {
@@ -298,51 +133,64 @@ void EntropyBeaconApp::render() {
         case VIZ_SPECTRUM:
             drawSpectrum();
             break;
-        case VIZ_WATERFALL:
-            drawWaterfall();
-            break;
-        case VIZ_SCATTER:
-            drawScatterPlot();
-            break;
-        case VIZ_HISTOGRAM:
-            drawHistogram();
-            break;
-        case VIZ_ANOMALY:
-            drawAnomalyView();
-            break;
     }
     
-    // Draw controls and status
+    // Draw controls
     drawControls();
-    drawStatusBar();
     
-    // Draw common UI elements
-    drawCommonUI();
+    // Draw status info
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(5, 25, "Buffer: " + String(getBufferSize()) + "/" + String(ENTROPY_BUFFER_SIZE), COLOR_LIGHT_GRAY);
+    
+    if (getBufferSize() > 0) {
+        float currentEntropy = getCurrentEntropy();
+        displayManager.drawText(120, 25, "Val: " + String(currentEntropy, 3), COLOR_WHITE);
+    }
+    
+    displayManager.drawText(220, 25, "Anom: " + String(anomalyDetector.anomalyCount), 
+                           anomalyDetector.anomalyCount > 0 ? COLOR_RED_GLOW : COLOR_LIGHT_GRAY);
 }
 
 bool EntropyBeaconApp::handleTouch(TouchPoint touch) {
-    // Handle common UI first
-    if (handleCommonTouch(touch)) {
+    if (!touch.isNewPress) return false;
+    
+    // Mode switching buttons (top row)
+    if (touch.y < 30) {
+        if (touch.x < 80) {
+            viz.mode = VIZ_OSCILLOSCOPE;
+        } else if (touch.x < 160) {
+            viz.mode = VIZ_SPECTRUM;
+        }
         return true;
     }
     
-    if (!touch.isNewPress) return false;
-    
-    // Handle control touches
-    handleControlTouch(touch);
+    // Settings area (bottom)
+    if (touch.y > 210) {
+        if (touch.x < 80) {
+            // Decrease sample rate
+            if (viz.sampleRate > RATE_100HZ) {
+                viz.sampleRate = (SampleRate)(viz.sampleRate / 2);
+                calculateSampleInterval();
+            }
+        } else if (touch.x < 160) {
+            // Increase sample rate
+            if (viz.sampleRate < RATE_8KHZ) {
+                viz.sampleRate = (SampleRate)(viz.sampleRate * 2);
+                calculateSampleInterval();
+            }
+        } else if (touch.x < 240) {
+            // Toggle DAC
+            dacEnabled = !dacEnabled;
+        }
+        return true;
+    }
     
     return true;
 }
 
 void EntropyBeaconApp::cleanup() {
-    // Stop recording if active
-    if (viz.recordingEnabled) {
-        stopRecording();
-    }
-    
     // Turn off DAC
-    dacWrite(dacPin, 0);
-    
+    dacWrite(DAC_OUT_PIN, 0);
     debugLog("EntropyBeacon cleanup complete");
 }
 
@@ -350,6 +198,111 @@ const uint8_t* EntropyBeaconApp::getIcon() const {
     return ENTROPY_ICON;
 }
 
+// ========================================
+// SAMPLING AND DATA PROCESSING
+// ========================================
+
+void EntropyBeaconApp::sampleEntropy() {
+    // Read from multiple entropy sources
+    uint16_t source1 = analogRead(ENTROPY_PIN_1);
+    uint16_t source2 = analogRead(ENTROPY_PIN_2);
+    uint16_t systemEntropy = systemCore.getEntropyPool() & 0xFFF;
+    
+    // Combine sources
+    uint16_t entropyValue = source1 ^ (source2 << 4) ^ systemEntropy;
+    float normalized = (float)entropyValue / 4095.0f;
+    
+    // Store in circular buffer
+    entropyBuffer[bufferIndex] = entropyValue;
+    bufferIndex = (bufferIndex + 1) % ENTROPY_BUFFER_SIZE;
+    
+    // Simple anomaly detection
+    bool isAnomaly = detectAnomaly(normalized);
+    
+    // Update statistics
+    updateStatistics(normalized);
+    
+    // Write to SD card if recording
+    if (viz.recordingEnabled) {
+        writeDataToSD(entropyValue, normalized, isAnomaly);
+    }
+    
+    // Log significant events to SD card
+    static uint32_t sampleCount = 0;
+    sampleCount++;
+    if (isAnomaly || sampleCount % 1000 == 0) {
+        logEventToSD(isAnomaly ? "ANOMALY" : "CHECKPOINT", normalized);
+    }
+}
+
+bool EntropyBeaconApp::detectAnomaly(float value) {
+    float deviation = abs(value - anomalyDetector.mean);
+    float stdDev = sqrt(anomalyDetector.variance);
+    
+    bool isAnomaly = deviation > (anomalyDetector.threshold * stdDev);
+    if (isAnomaly) {
+        anomalyDetector.anomalyCount++;
+        debugLog("Anomaly detected: " + String(value, 4));
+    }
+    return isAnomaly;
+}
+
+void EntropyBeaconApp::updateStatistics(float value) {
+    // Update running mean and variance
+    float alpha = 0.01f; // Learning rate
+    
+    float delta = value - anomalyDetector.mean;
+    anomalyDetector.mean += alpha * delta;
+    anomalyDetector.variance += alpha * (delta * delta - anomalyDetector.variance);
+}
+
+void EntropyBeaconApp::calculateSampleInterval() {
+    // Convert sample rate to microsecond interval
+    sampleInterval = 1000000 / viz.sampleRate;
+    debugLog("Sample interval set to: " + String(sampleInterval) + " us");
+}
+
+// ========================================
+// VISUALIZATION METHODS
+// ========================================
+
+void EntropyBeaconApp::drawOscilloscope() {
+    if (getBufferSize() < 2) return;
+    
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(GRAPH_X, GRAPH_Y - 15, "Entropy Oscilloscope", COLOR_GREEN_PHOS);
+    
+    // Draw waveform
+    for (int16_t x = 0; x < GRAPH_WIDTH - 1; x++) {
+        uint16_t sampleIndex1 = (bufferIndex - GRAPH_WIDTH + x + ENTROPY_BUFFER_SIZE) % ENTROPY_BUFFER_SIZE;
+        uint16_t sampleIndex2 = (bufferIndex - GRAPH_WIDTH + x + 1 + ENTROPY_BUFFER_SIZE) % ENTROPY_BUFFER_SIZE;
+        
+        float value1 = (float)entropyBuffer[sampleIndex1] / 4095.0f;
+        float value2 = (float)entropyBuffer[sampleIndex2] / 4095.0f;
+        
+        int16_t y1 = GRAPH_Y + GRAPH_HEIGHT - (int16_t)(value1 * GRAPH_HEIGHT);
+        int16_t y2 = GRAPH_Y + GRAPH_HEIGHT - (int16_t)(value2 * GRAPH_HEIGHT);
+        
+        // Clamp to graph area
+        y1 = max(GRAPH_Y, min(GRAPH_Y + GRAPH_HEIGHT - 1, y1));
+        y2 = max(GRAPH_Y, min(GRAPH_Y + GRAPH_HEIGHT - 1, y2));
+        
+        displayManager.drawLine(GRAPH_X + x, y1, GRAPH_X + x + 1, y2, viz.traceColor);
+    }
+    
+    // Draw statistics
+    displayManager.setFont(FONT_TINY);
+    displayManager.drawText(GRAPH_X + GRAPH_WIDTH - 80, GRAPH_Y - 8, 
+                           "Mean: " + String(anomalyDetector.mean, 3), COLOR_LIGHT_GRAY);
+}
+
+void EntropyBeaconApp::drawSpectrum() {
+    // Simple spectrum analyzer
+    performSimpleFFT();
+    
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(GRAPH_X, GRAPH_Y - 15, "Frequency Spectrum", COLOR_CYAN_GLOW);
+    
 // ========================================
 // OPTIONAL BASEAPP METHODS
 // ========================================
@@ -1681,14 +1634,6 @@ void EntropyBeaconApp::generateDACWaveform() {
     lastToneUpdate = millis();
 }
 
-void EntropyBeaconApp::outputToDAC(uint16_t value) {
-    // Clamp to 8-bit range
-    uint8_t dacValue = min(255, (int)value);
-    dacWrite(dacPin, dacValue);
-}
-
-float EntropyBeaconApp::applyFilter(float input, uint8_t filterType) {
-    static float lowPassState = 0.0f;
     static float highPassState = 0.0f;
     static float bandPassState1 = 0.0f;
     static float bandPassState2 = 0.0f;
@@ -1739,24 +1684,8 @@ float EntropyBeaconApp::applyFilter(float input, uint8_t filterType) {
 }
 
 void EntropyBeaconApp::outputToDAC(uint16_t value) {
-    // Clamp to 8-bit range
-    uint8_t dacValue = min(255, (int)value);
-    
-    // Output to primary DAC (left channel)
-    dacWrite(DAC_OUT_LEFT, dacValue);
-    
-    // If using differential output or stereo mode, output to right channel
-    if (viz.dacMode == DAC_MODULATED || viz.dacMode == DAC_TONE) {
-        // For modulated modes, output phase-shifted or complementary signal
-        uint8_t rightValue = dacValue;
-        
-        if (viz.dacMode == DAC_MODULATED) {
-            // Phase-shifted output for stereo effect
-            rightValue = 255 - dacValue; // Inverted signal
-        }
-        
-        dacWrite(DAC_OUT_RIGHT, rightValue);
-    }
+    uint8_t dacValue = (uint8_t)min(255, (int)value);
+    dacWrite(DAC_OUT_PIN, dacValue);
 }
 
 // ========================================
@@ -1813,25 +1742,6 @@ void EntropyBeaconApp::drawStatusBar() {
                            anomalyDetector.anomalyCount > 0 ? COLOR_RED_GLOW : COLOR_LIGHT_GRAY);
 }
 
-void EntropyBeaconApp::setupTouchZones() {
-    // Mode button
-    touchZones[0] = {5, 220, 30, 16, "mode", true};
-    
-    // Sample rate button
-    touchZones[1] = {40, 220, 30, 16, "rate", true};
-    
-    // DAC button
-    touchZones[2] = {75, 220, 30, 16, "dac", true};
-    
-    // Record button
-    touchZones[3] = {110, 220, 40, 16, "record", true};
-    
-    // Export button
-    touchZones[4] = {155, 220, 40, 16, "export", true};
-    
-    // Graph area for parameter adjustment
-    touchZones[5] = {GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, "graph", true};
-}
 
 void EntropyBeaconApp::handleControlTouch(TouchPoint touch) {
     // Enhanced touch handling with advanced entropy controls
@@ -2056,7 +1966,8 @@ bool EntropyBeaconApp::exportAdvancedAnalysis(String filename) {
     // Export comprehensive entropy analysis
     String fullPath = getAppDataPath() + "/" + filename;
     
-    File exportFile = filesystem.writeFile(fullPath, "");
+    filesystem.writeFile(fullPath, "");
+    File exportFile = SD.open(fullPath, FILE_WRITE);
     if (!exportFile) {
         debugLog("Failed to create analysis export: " + fullPath);
         return false;
@@ -2291,7 +2202,7 @@ void EntropyBeaconApp::logEntropyEvent(EntropyPoint& point) {
         if (entropyLog) entropyLog.close();
         
         String logPath = getAppDataPath() + "/entropy_system.log";
-        entropyLog = filesystem.appendFile(logPath, "");
+        entropyLog = SD.open(logPath, FILE_APPEND);
         
         if (entropyLog) {
             // Write log header if this is a new session
@@ -2363,7 +2274,7 @@ void EntropyBeaconApp::logSystemEvent(String level, String event, String details
         if (systemLog) systemLog.close();
         
         String logPath = getAppDataPath() + "/system_events.log";
-        systemLog = filesystem.appendFile(logPath, "");
+        systemLog = SD.open(logPath, FILE_APPEND);
         lastSystemLogTime = millis();
     }
     
@@ -2396,7 +2307,7 @@ void EntropyBeaconApp::logPerformanceMetrics() {
     if (!perfLog) {
         String logPath = getAppDataPath() + "/performance_metrics.csv";
         bool isNewFile = !filesystem.fileExists(logPath);
-        perfLog = filesystem.appendFile(logPath, "");
+        perfLog = SD.open(logPath, FILE_APPEND);
         
         if (perfLog && isNewFile) {
             // Write CSV header for new file
@@ -2464,7 +2375,7 @@ void EntropyBeaconApp::logConfigurationChange(String parameter, String oldValue,
     
     if (!configLog) {
         String logPath = getAppDataPath() + "/configuration_changes.log";
-        configLog = filesystem.appendFile(logPath, "");
+        configLog = SD.open(logPath, FILE_APPEND);
     }
     
     if (configLog) {
@@ -2541,7 +2452,8 @@ bool EntropyBeaconApp::saveConfigurationToFile(String filename) {
     genConfig["lorenz_rho"] = generators.lorenz.rho;
     genConfig["use_multiple_sources"] = generators.useMultipleSources;
     
-    File configFile = filesystem.writeFile(filename, "");
+    filesystem.writeFile(filename, "");
+    File configFile = SD.open(filename, FILE_WRITE);
     if (configFile) {
         serializeJsonPretty(config, configFile);
         configFile.close();
@@ -2553,7 +2465,8 @@ bool EntropyBeaconApp::saveConfigurationToFile(String filename) {
 
 bool EntropyBeaconApp::exportRecentData(String filename, uint16_t sampleCount) {
     // Export recent entropy data in CSV format
-    File dataFile = filesystem.writeFile(filename, "");
+    filesystem.writeFile(filename, "");
+    File dataFile = SD.open(filename, FILE_WRITE);
     if (!dataFile) return false;
     
     // Write enhanced CSV header
@@ -3370,4 +3283,107 @@ void EntropyBeaconApp::resetStatistics() {
     memset(&analysis, 0, sizeof(analysis));
     
     debugLog("Statistics reset");
+}
+
+// ========================================
+// SD CARD STORAGE METHODS
+// ========================================
+
+void EntropyBeaconApp::writeDataToSD(uint16_t value, float normalized, bool isAnomaly) {
+    if (!recordingFile) return;
+    
+    // Write CSV data: timestamp,raw_value,normalized,anomaly
+    recordingFile.print(millis());
+    recordingFile.print(",");
+    recordingFile.print(value);
+    recordingFile.print(",");
+    recordingFile.print(normalized, 6);
+    recordingFile.print(",");
+    recordingFile.println(isAnomaly ? "1" : "0");
+    
+    // Flush every 10 samples for data integrity
+    static uint16_t flushCounter = 0;
+    if (++flushCounter >= 10) {
+        recordingFile.flush();
+        flushCounter = 0;
+    }
+}
+
+void EntropyBeaconApp::logEventToSD(String eventType, float value) {
+    File logFile = SD.open(logPath.c_str(), FILE_APPEND);
+    if (logFile) {
+        logFile.print(millis());
+        logFile.print(" [");
+        logFile.print(eventType);
+        logFile.print("] Value: ");
+        logFile.print(value, 4);
+        logFile.print(" Mean: ");
+        logFile.print(anomalyDetector.mean, 4);
+        logFile.print(" Anomalies: ");
+        logFile.println(anomalyDetector.anomalyCount);
+        logFile.close();
+    }
+}
+
+bool EntropyBeaconApp::startRecording() {
+    if (recordingFile) {
+        recordingFile.close();
+    }
+    
+    // Create unique filename with timestamp
+    String filename = "/sd/apps/entropybeacon/entropy_" + String(millis()) + ".csv";
+    recordingFile = SD.open(filename.c_str(), FILE_WRITE);
+    
+    if (recordingFile) {
+        // Write CSV header
+        recordingFile.println("timestamp,raw_value,normalized,anomaly");
+        debugLog("Recording started: " + filename);
+        return true;
+    }
+    
+    debugLog("Failed to start recording");
+    return false;
+}
+
+void EntropyBeaconApp::stopRecording() {
+    if (recordingFile) {
+        recordingFile.close();
+        debugLog("Recording stopped");
+    }
+}
+
+void EntropyBeaconApp::loadConfiguration() {
+    File configFile = SD.open(configPath.c_str(), FILE_READ);
+    if (configFile) {
+        // Simple configuration loading
+        String config = configFile.readString();
+        configFile.close();
+        
+        // Parse basic settings (simple key=value format)
+        if (config.indexOf("sampleRate=") >= 0) {
+            int start = config.indexOf("sampleRate=") + 11;
+            int end = config.indexOf("\n", start);
+            if (end > start) {
+                int rate = config.substring(start, end).toInt();
+                if (rate >= RATE_100HZ && rate <= RATE_8KHZ) {
+                    viz.sampleRate = (SampleRate)rate;
+                    calculateSampleInterval();
+                }
+            }
+        }
+        
+        debugLog("Configuration loaded from SD card");
+    }
+}
+
+void EntropyBeaconApp::saveConfiguration() {
+    File configFile = SD.open(configPath.c_str(), FILE_WRITE);
+    if (configFile) {
+        configFile.println("# EntropyBeacon Configuration");
+        configFile.println("sampleRate=" + String(viz.sampleRate));
+        configFile.println("threshold=" + String(anomalyDetector.threshold, 2));
+        configFile.println("dacEnabled=" + String(dacEnabled ? "1" : "0"));
+        configFile.close();
+        debugLog("Configuration saved to SD card");
+    }
 }

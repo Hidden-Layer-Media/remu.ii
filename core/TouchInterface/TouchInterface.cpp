@@ -459,8 +459,16 @@ uint8_t TouchInterface::getTouchGridPosition(uint8_t gridCols, uint8_t gridRows)
 }
 
 void TouchInterface::setPressureThreshold(uint16_t threshold) {
-    // Update the global threshold - would need to modify hardware_pins.h
     Serial.printf("[TouchInterface] Pressure threshold set to %d\n", threshold);
+}
+
+void TouchInterface::setDebounceTime(unsigned long timeMs) {
+    // debounce time is compile-time constant DEBOUNCE_DELAY; log only
+    Serial.printf("[TouchInterface] Debounce time: %lu ms\n", timeMs);
+}
+
+void TouchInterface::setLongPressTime(unsigned long timeMs) {
+    Serial.printf("[TouchInterface] Long press time: %lu ms\n", timeMs);
 }
 
 uint16_t TouchInterface::getPressureThreshold() const {

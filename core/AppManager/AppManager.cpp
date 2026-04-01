@@ -1,9 +1,9 @@
 #include "AppManager.h"
-#include "../../apps/CarCloner/CarClonerStub.h"
-#include "../../apps/BLEScanner/BLEScannerStub.h"
-#include "../../apps/PreqScanner/FreqScannerStub.h"
-#include "../../apps/EntropyBeacon/EntropyBeaconStub.h"
-#include "../../apps/Sequencer/SequencerStub.h"
+#include "../../apps/CarCloner/CarClonerFull.h"
+#include "../../apps/BLEScanner/BLEScannerFull.h"
+#include "../../apps/PreqScanner/FreqScannerFull.h"
+#include "../../apps/EntropyBeacon/EntropyBeacon.h"
+#include "../../apps/Sequencer/SequencerFull.h"
 #include "../../apps/WifiTools/WiFiToolsStub.h"
 #include "../../apps/DigitalPet/DigitalPetStub.h"
 
@@ -738,4 +738,81 @@ void AppManager::drawLoadingScreen() {
     displayManager.clearScreen(COLOR_BLACK);
     displayManager.setFont(FONT_MEDIUM);
     displayManager.drawTextCentered(0, 100, SCREEN_WIDTH, "Loading...", COLOR_GREEN_PHOS);
+}
+
+void AppManager::unloadApp(uint8_t appIndex) {
+    if (appIndex >= registeredAppCount) return;
+    if (appRegistry[appIndex].isLoaded && appRegistry[appIndex].instance) {
+        appRegistry[appIndex].instance->cleanup();
+        delete appRegistry[appIndex].instance;
+        appRegistry[appIndex].instance = nullptr;
+        appRegistry[appIndex].isLoaded = false;
+    }
+}
+
+void AppManager::scanForApps() {}
+
+void AppManager::freeMemoryForApp(size_t requiredMemory) {
+    for (uint8_t i = 0; i < registeredAppCount; i++) {
+        if (appRegistry[i].isLoaded && appRegistry[i].instance != currentApp) {
+            unloadApp(i);
+            if (ESP.getFreeHeap() >= requiredMemory) return;
+        }
+    }
+}
+
+void AppManager::setLauncherPage(uint8_t page) {
+    if (page < totalPages) launcherPage = page;
+}
+
+bool AppManager::handleSystemEvent(uint8_t event) { return false; }
+void AppManager::handleLowBattery() { Serial.println("[AppManager] Low battery"); }
+void AppManager::handleSystemShutdown() { shutdown(); }
+
+size_t AppManager::getAvailableMemory() const { return ESP.getFreeHeap(); }
+
+size_t AppManager::getTotalMemoryUsage() const {
+    size_t total = 0;
+    for (uint8_t i = 0; i < registeredAppCount; i++) {
+        total += appRegistry[i].memoryUsage;
+    }
+    return total;
+}
+
+void AppManager::printMemoryUsage() {
+    Serial.printf("[AppManager] Total app memory: %d bytes\n", getTotalMemoryUsage());
+}
+
+String AppManager::getSystemStatus() {
+    return "Apps: " + String(registeredAppCount) + " Free: " + String(ESP.getFreeHeap());
+}
+
+void AppManager::dumpAppState() { printAppRegistry(); }
+
+void AppManager::registerDigitalPetApp()  { registerApp("DigitalPet",    "DigitalPetApp",  "/apps/DigitalPet/"); }
+void AppManager::registerSequencerApp()   { registerApp("Sequencer",     "SequencerApp",   "/apps/Sequencer/"); }
+void AppManager::registerWiFiToolsApp()   { registerApp("WiFiTools",     "WiFiToolsApp",   "/apps/WiFiTools/"); }
+void AppManager::registerBLEScannerApp()  { registerApp("BLEScanner",    "BLEScannerApp",  "/apps/BLEScanner/"); }
+void AppManager::registerCarClonerApp()   { registerApp("CarCloner",     "CarClonerApp",   "/apps/CarCloner/"); }
+void AppManager::registerFreqScannerApp() { registerApp("FreqScanner",   "FreqScannerApp", "/apps/FreqScanner/"); }
+void AppManager::registerEntropyBeaconApp() { registerApp("EntropyBeacon", "EntropyBeaconApp", "/apps/EntropyBeacon/"); }
+
+AppRegistryEntry AppManager::getAppInfo(uint8_t index) const {
+    if (index < registeredAppCount) return appRegistry[index];
+    return {"", "", "", {}, nullptr, false, false, 0};
+}
+
+bool AppManager::isAppLoaded(String name) const {
+    int8_t idx = findAppByName(name);
+    return (idx >= 0) && appRegistry[idx].isLoaded;
+}
+
+bool AppManager::isAppEnabled(String name) const {
+    int8_t idx = findAppByName(name);
+    return (idx >= 0) && appRegistry[idx].isEnabled;
+}
+
+void AppManager::setAppEnabled(String name, bool enabled) {
+    int8_t idx = findAppByName(name);
+    if (idx >= 0) appRegistry[idx].isEnabled = enabled;
 }
