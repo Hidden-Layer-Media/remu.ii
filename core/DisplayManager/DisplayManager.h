@@ -82,6 +82,7 @@ struct ProgressBar {
 class DisplayManager {
 private:
     Adafruit_ILI9341* tft;
+    Adafruit_ILI9341 tftInstance;  // static instance avoids heap allocation
     bool initialized;
     uint8_t brightness;
     uint8_t currentFont;

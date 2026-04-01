@@ -1,8 +1,5 @@
 #include "SystemCore.h"
 
-// Global instance
-SystemCore systemCore;
-
 SystemCore::SystemCore() :
     errorSystem(),
     currentState(SYSTEM_BOOT),
@@ -17,14 +14,9 @@ SystemCore::SystemCore() :
     batteryPercentage(50),
     isCharging(false)
 {
-    // Initialize entropy buffer with some initial randomness
     for (int i = 0; i < ENTROPY_BUFFER_SIZE; i++) {
         entropyBuffer[i] = 0;
     }
-    
-    // Log system initialization
-    Serial.println("[SystemCore] System initialization starting...");
-    Serial.println("[SystemCore] Free heap at startup: " + String(getFreeHeap()) + " bytes");
 }
 
 SystemCore::~SystemCore() {

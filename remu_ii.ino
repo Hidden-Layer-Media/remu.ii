@@ -19,7 +19,7 @@
 // ========================================
 
 // Check for required libraries at compile time
-#ifndef ARDUINO_H
+#ifndef Arduino_h
 #error "Arduino core library not found. Install ESP32 Arduino Core."
 #endif
 

@@ -7,9 +7,6 @@
 #include "../../apps/WifiTools/WiFiToolsStub.h"
 #include "../../apps/DigitalPet/DigitalPetStub.h"
 
-// Global instance
-AppManager appManager;
-
 // Built-in icon data (16x16 1-bit bitmaps)
 const uint8_t AppManager::ICON_SYSTEM[32] = {
     0x00, 0x00, 0x7F, 0xFE, 0x40, 0x02, 0x5F, 0xFA, 0x50, 0x0A, 0x5F, 0xFA,
@@ -117,11 +114,11 @@ AppManager::~AppManager() {
 bool AppManager::initialize() {
     Serial.println("[AppManager] Initializing...");
     
-    // Initialize SD card for app loading
-    if (!SD.begin(SD_CS)) {
-        Serial.println("[AppManager] WARNING: SD card not found - built-in apps only");
+    // SD card is already initialized by FileSystem - do not call SD.begin() again
+    if (!filesystem.isReady()) {
+        Serial.println("[AppManager] WARNING: SD card not ready - built-in apps only");
     } else {
-        Serial.println("[AppManager] SD card initialized");
+        Serial.println("[AppManager] SD card available");
     }
     
     // Register built-in apps

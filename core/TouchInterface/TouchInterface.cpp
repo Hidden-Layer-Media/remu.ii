@@ -3,9 +3,6 @@
 #include "../DisplayManager/DisplayManager.h"
 #include <EEPROM.h>
 
-// Global instance
-TouchInterface touchInterface;
-
 // EEPROM addresses for calibration data
 #define EEPROM_CALIBRATION_ADDR 100
 #define CALIBRATION_MAGIC_NUMBER 0xCAFE
@@ -119,26 +116,25 @@ uint16_t TouchInterface::readTouchY() {
 }
 
 uint16_t TouchInterface::readTouchPressure() {
-    // Measure resistance between X plates while Y plates are driven
-    pinMode(TOUCH_YP, OUTPUT);
+    // Standard Z1/Z2 resistive touch pressure measurement
+    // Set XP=LOW, YM=HIGH, read Z1 on XM and Z2 on YP
+    pinMode(TOUCH_XP, OUTPUT);
     pinMode(TOUCH_YM, OUTPUT);
-    pinMode(TOUCH_XP, INPUT);
     pinMode(TOUCH_XM, INPUT);
+    pinMode(TOUCH_YP, INPUT);
     
-    digitalWrite(TOUCH_YP, HIGH);
-    digitalWrite(TOUCH_YM, LOW);
+    digitalWrite(TOUCH_XP, LOW);
+    digitalWrite(TOUCH_YM, HIGH);
     
     delayMicroseconds(20);
     
-    // Read both X plates and calculate pressure from resistance
-    uint16_t xp = analogRead(TOUCH_XP);
-    uint16_t xm = analogRead(TOUCH_XM);
+    uint16_t z1 = analogRead(TOUCH_XM); // rises with pressure
+    uint16_t z2 = analogRead(TOUCH_YP); // falls with pressure
     
-    // Pressure is inversely related to the resistance
-    // Lower resistance = higher pressure
+    // Pressure proportional to z1/(z2-z1); clamp to 0-1023
     uint16_t pressure = 0;
-    if (xp != 0) {
-        pressure = 4095 - ((xm * 1024) / xp);
+    if (z2 > z1) {
+        pressure = (uint16_t)constrain((z1 * 1023UL) / (z2 - z1 + 1), 0, 1023);
     }
     
     return pressure;

@@ -5,6 +5,8 @@
 #include "../../core/FileSystem.h"
 #include <WiFi.h>
 
+#define WIFI_MAX_SCAN 32
+
 struct WiFiNetwork {
     String ssid;
     int32_t rssi;
@@ -14,29 +16,29 @@ struct WiFiNetwork {
 
 class WiFiToolsApp : public BaseApp {
 private:
-    std::vector<WiFiNetwork> networks;
+    WiFiNetwork networks[WIFI_MAX_SCAN];
+    int networkCount = 0;
     String logFile = "/logs/wifi_scan.log";
     int selectedNetwork = 0;
-    int mode = 0; // 0=scan, 1=logs
+    int mode = 0;
     bool scanning = false;
     unsigned long lastScan = 0;
     
     void scanNetworks() {
         if (scanning) return;
         scanning = true;
-        networks.clear();
+        networkCount = 0;
         
         WiFi.mode(WIFI_STA);
         WiFi.disconnect();
         int n = WiFi.scanNetworks();
         
-        for (int i = 0; i < n; i++) {
-            WiFiNetwork net;
-            net.ssid = WiFi.SSID(i);
-            net.rssi = WiFi.RSSI(i);
-            net.encryption = WiFi.encryptionType(i);
-            net.bssid = WiFi.BSSIDstr(i);
-            networks.push_back(net);
+        networkCount = min(n, WIFI_MAX_SCAN);
+        for (int i = 0; i < networkCount; i++) {
+            networks[i].ssid = WiFi.SSID(i);
+            networks[i].rssi = WiFi.RSSI(i);
+            networks[i].encryption = WiFi.encryptionType(i);
+            networks[i].bssid = WiFi.BSSIDstr(i);
         }
         
         logScanResults();
@@ -47,10 +49,10 @@ private:
     void logScanResults() {
         filesystem.ensureDirExists("/logs");
         String timestamp = String(millis());
-        String logEntry = "[" + timestamp + "] Scan found " + String(networks.size()) + " networks:\n";
+        String logEntry = "[" + timestamp + "] Scan found " + String(networkCount) + " networks:\n";
         
-        for (const auto& net : networks) {
-            logEntry += "  " + net.ssid + " (" + String(net.rssi) + "dBm) " + net.bssid + "\n";
+        for (int i = 0; i < networkCount; i++) {
+            logEntry += "  " + networks[i].ssid + " (" + String(networks[i].rssi) + "dBm) " + networks[i].bssid + "\n";
         }
         logEntry += "\n";
         
@@ -82,11 +84,10 @@ public:
         displayManager.drawText(10, 10, "WiFi Tools", COLOR_GREEN_PHOS);
         
         if (mode == 0) {
-            displayManager.drawText(10, 30, scanning ? "Scanning..." : "Networks: " + String(networks.size()), COLOR_WHITE);
+            displayManager.drawText(10, 30, scanning ? "Scanning..." : "Networks: " + String(networkCount), COLOR_WHITE);
             
-            // Show networks
             int y = 50;
-            for (int i = 0; i < min(8, (int)networks.size()); i++) {
+            for (int i = 0; i < min(8, networkCount); i++) {
                 uint16_t color = (i == selectedNetwork) ? COLOR_RED_GLOW : COLOR_WHITE;
                 String line = networks[i].ssid;
                 if (line.length() > 20) line = line.substring(0, 17) + "...";
@@ -157,7 +158,7 @@ public:
                 }
             } else if (mode == 0 && touch.y >= 50 && touch.y < 170) {
                 int selected = (touch.y - 50) / 15;
-                if (selected < networks.size()) {
+                if (selected < networkCount) {
                     selectedNetwork = selected;
                 }
             }

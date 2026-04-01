@@ -19,19 +19,19 @@
 #define TOUCH_IRQ  22    // Touch Interrupt - CHANGED from analog pins
 // Touch shares SPI bus with display (MOSI, MISO, SCLK)
 
-// 4-Wire Resistive Touch Pins (alternative to XPT2046)
-// These are used by the TouchInterface for direct resistive touch reading
-#define TOUCH_XP   32    // X+ (analog input / digital output)
+// 4-Wire Resistive Touch Pins
+// All read pins MUST be on ADC1 (GPIO32-39) - ADC2 is disabled when WiFi is active
+#define TOUCH_XP   32    // X+ (ADC1_CH4 - analog read for Y axis)
 #define TOUCH_XM   33    // X- (digital output)
-#define TOUCH_YP   27    // Y+ (analog input)
-#define TOUCH_YM   14    // Y- (digital output)
+#define TOUCH_YP   34    // Y+ (ADC1_CH6 - analog read for X axis, input-only)
+#define TOUCH_YM   27    // Y- (digital output)
 
 // SD Card Pins (shares SPI bus with display and touch)
 #define SD_CS      4     // SD Card Chip Select - CHANGED from 5
 
 // Power Management
 #define BATTERY_PIN 35   // ADC pin for battery voltage monitoring
-#define PWR_LED    0     // Power status LED
+#define PWR_LED    17    // Power status LED (GPIO0 is boot pin - DO NOT USE)
 
 // Entropy Sources (floating analog pins)
 #define ENTROPY_PIN_1  36   // ADC1_CH0
@@ -44,10 +44,10 @@
 #define I2S_DATA_PIN  21    // I2S Data Output
 // NOTE: AUDIO_AMP_EN removed due to conflict with TOUCH_YP
 
-// Alternative: PWM Audio (backup option)
-// NOTE: PWM audio pins reassigned due to conflict with 4-wire touch
-#define PWM_OUT_LEFT  26    // Left channel PWM output (shared with I2S_BCK)
-#define PWM_OUT_RIGHT 25    // Right channel PWM output (shared with I2S_WS)
+// Alternative: PWM Audio (backup option - mutually exclusive with I2S)
+// Uncomment ONLY if not using I2S audio
+// #define PWM_OUT_LEFT  26
+// #define PWM_OUT_RIGHT 25
 
 // BLE/RF Pins (for external RF modules if needed)
 #define RF_CE_PIN     12    // RF module Chip Enable
@@ -55,8 +55,8 @@
 #define RF_IRQ_PIN    13    // RF module IRQ
 
 // System Control
-#define BUZZER_PIN    17    // Optional piezo buzzer - CHANGED from 1
-#define DEBUG_LED     2     // Debug LED (shared with TFT_DC - use carefully)
+#define BUZZER_PIN    21    // Optional piezo buzzer
+// DEBUG_LED intentionally removed - GPIO2 is TFT_DC, sharing it corrupts display
 
 // Display Configuration
 #define SCREEN_WIDTH  320

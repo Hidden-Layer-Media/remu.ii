@@ -44,7 +44,7 @@ const String Settings::DEBUG_MEMORY_INFO = "debug.memory_info";
 Settings::Settings() :
     settings(nullptr),
     settingCount(0),
-    maxSettings(50),
+    maxSettings(20),
     configPath("/settings/config.json"),
     backupPath("/settings/config.bak"),
     changeCallback(nullptr)

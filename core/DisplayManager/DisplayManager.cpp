@@ -1,11 +1,9 @@
 #include "DisplayManager.h"
 #include "../SystemCore/SystemCore.h"
 
-// Global instance
-DisplayManager displayManager;
-
 DisplayManager::DisplayManager() : 
     tft(nullptr),
+    tftInstance(TFT_CS, TFT_DC, TFT_RST),
     initialized(false),
     brightness(255),
     currentFont(FONT_MEDIUM),
@@ -23,13 +21,8 @@ DisplayManager::~DisplayManager() {
 bool DisplayManager::initialize() {
     Serial.println("[DisplayManager] Initializing ILI9341 display...");
     
-    // Initialize TFT display
-    tft = new Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
-    
-    if (!tft) {
-        Serial.println("[DisplayManager] ERROR: Failed to create TFT instance");
-        return false;
-    }
+    // Point tft at the static instance
+    tft = &tftInstance;
     
     // Initialize SPI and display
     tft->begin();
@@ -65,7 +58,6 @@ void DisplayManager::update() {
 void DisplayManager::shutdown() {
     if (tft) {
         tft->fillScreen(COLOR_BLACK);
-        delete tft;
         tft = nullptr;
     }
     

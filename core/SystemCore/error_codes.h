@@ -14,7 +14,7 @@ enum ErrorCodes {
 };
 
 // Error descriptions
-const char* getErrorDescription(ErrorCodes code) {
+inline const char* getErrorDescription(ErrorCodes code) {
     switch(code) {
         case ERROR_NONE: return "No error";
         case ERROR_ENTROPY: return "Entropy system failure";
