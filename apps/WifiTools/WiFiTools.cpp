@@ -171,11 +171,10 @@ void WiFiToolsApp::render() {
             drawMonitorMode();
             break;
         case WIFI_AP_CLONE:
-            // Similar to deauth mode for now
-            drawDeauthMode();
+            drawEvilTwinMode();
             break;
         case WIFI_HANDSHAKE:
-            drawMonitorMode();
+            drawHandshakeMode();
             break;
     }
     
@@ -204,6 +203,12 @@ bool WiFiToolsApp::handleTouch(TouchPoint touch) {
             break;
         case WIFI_MONITOR:
             handleMonitorTouch(touch);
+            break;
+        case WIFI_AP_CLONE:
+            handleEvilTwinTouch(touch);
+            break;
+        case WIFI_HANDSHAKE:
+            handleHandshakeTouch(touch);
             break;
         default:
             break;
@@ -249,8 +254,10 @@ String WiFiToolsApp::getSettingName(uint8_t index) const {
         case 1: return "Deauth Mode";
         case 2: return "Beacon Spam";
         case 3: return "Monitor Mode";
-        case 4: return "Export Data";
-        case 5: return "Clear Data";
+        case 4: return "Evil Twin";
+        case 5: return "Handshake Capture";
+        case 6: return "Export Data";
+        case 7: return "Clear Data";
         default: return "";
     }
 }
@@ -269,10 +276,16 @@ void WiFiToolsApp::handleSetting(uint8_t index) {
         case 3: // Monitor Mode
             setMode(WIFI_MONITOR);
             break;
-        case 4: // Export Data
+        case 4: // Evil Twin
+            setMode(WIFI_AP_CLONE);
+            break;
+        case 5: // Handshake Capture
+            setMode(WIFI_HANDSHAKE);
+            break;
+        case 6: // Export Data
             exportNetworkList("networks.json");
             break;
-        case 5: // Clear Data
+        case 7: // Clear Data
             clearCapturedData();
             break;
     }
@@ -645,6 +658,65 @@ void WiFiToolsApp::drawMonitorMode() {
     displayManager.drawButton(135, 150, 60, 16, "Export");
 }
 
+void WiFiToolsApp::drawEvilTwinMode() {
+    displayManager.setFont(FONT_MEDIUM);
+    displayManager.drawText(5, 5, "Evil Twin AP", COLOR_RED_GLOW);
+    
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(5, 25, "WARNING: For authorized testing only!", COLOR_RED_GLOW);
+    
+    // Target information
+    if (ui.selectedNetwork < networkCount) {
+        NetworkInfo& target = networks[ui.selectedNetwork];
+        displayManager.drawText(5, 45, "Target: " + target.ssid, COLOR_WHITE);
+        displayManager.drawText(5, 60, "BSSID: " + target.bssid, COLOR_LIGHT_GRAY);
+        displayManager.drawText(5, 75, "Channel: " + String(target.channel), COLOR_LIGHT_GRAY);
+    }
+    
+    // Attack status
+    if (ui.attackActive) {
+        displayManager.drawText(5, 95, "AP Status: ACTIVE", COLOR_RED_GLOW);
+        displayManager.drawText(5, 110, "Clients Connected: " + String(clientCount), COLOR_GREEN_PHOS);
+    } else {
+        displayManager.drawText(5, 95, "AP Status: STOPPED", COLOR_LIGHT_GRAY);
+    }
+    
+    // Controls
+    displayManager.drawButton(5, 150, 60, 16, ui.attackActive ? "Stop" : "Start");
+    displayManager.drawButton(70, 150, 60, 16, "Select Target");
+    displayManager.drawButton(135, 150, 60, 16, "Configure");
+    
+    // Legal reminder
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawTextCentered(0, 200, SCREEN_WIDTH, "Use responsibly - Educational only", COLOR_LIGHT_GRAY);
+}
+
+void WiFiToolsApp::drawHandshakeMode() {
+    displayManager.setFont(FONT_MEDIUM);
+    displayManager.drawText(5, 5, "Handshake Capture", COLOR_RED_GLOW);
+    
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(5, 25, "Channel: " + String(currentAttack.targetChannel), COLOR_WHITE);
+    
+    // Capture statistics
+    displayManager.drawText(5, 45, "Packets Captured: " + String(ui.packetsReceived), COLOR_GREEN_PHOS);
+    displayManager.drawText(5, 60, "EAPOL Frames: " + String(ui.packetsSent), COLOR_PURPLE_GLOW);
+    displayManager.drawText(5, 75, "Handshakes: 0", COLOR_RED_GLOW); // Placeholder
+    
+    // Monitor status
+    String status = monitorModeActive ? "CAPTURING" : "STOPPED";
+    uint16_t statusColor = monitorModeActive ? COLOR_GREEN_PHOS : COLOR_LIGHT_GRAY;
+    displayManager.drawText(5, 90, "Status: " + status, statusColor);
+    
+    // Controls
+    displayManager.drawButton(5, 150, 60, 16, monitorModeActive ? "Stop" : "Start");
+    displayManager.drawButton(70, 150, 60, 16, "Channel+");
+    displayManager.drawButton(135, 150, 60, 16, "Export");
+    
+    // Legal reminder
+    displayManager.drawTextCentered(0, 200, SCREEN_WIDTH, "Authorized networks only", COLOR_LIGHT_GRAY);
+}
+
 // ========================================
 // TOUCH HANDLING
 // ========================================
@@ -740,6 +812,64 @@ void WiFiToolsApp::handleMonitorTouch(TouchPoint touch) {
         setChannel(currentAttack.targetChannel);
         return;
     }
+}
+
+void WiFiToolsApp::handleEvilTwinTouch(TouchPoint touch) {
+    // Start/Stop evil twin
+    if (touchInterface.isPointInRect(touch, 5, 150, 60, 16)) {
+        if (ui.attackActive) {
+            stopAttack();
+        } else {
+            if (confirmAttack("Evil Twin")) {
+                if (ui.selectedNetwork < networkCount) {
+                    startEvilTwin(networks[ui.selectedNetwork].ssid);
+                }
+            }
+        }
+        return;
+    }
+    
+    // Select target button
+    if (touchInterface.isPointInRect(touch, 70, 150, 60, 16)) {
+        setMode(WIFI_SCANNER);
+        return;
+    }
+}
+
+void WiFiToolsApp::handleHandshakeTouch(TouchPoint touch) {
+    // Start/Stop handshake capture
+    if (touchInterface.isPointInRect(touch, 5, 150, 60, 16)) {
+        if (monitorModeActive) {
+            stopPacketMonitor();
+        } else {
+            captureHandshakes(true);
+            startPacketMonitor(currentAttack.targetChannel);
+        }
+        return;
+    }
+    
+    // Channel+ button
+    if (touchInterface.isPointInRect(touch, 70, 150, 60, 16)) {
+        currentAttack.targetChannel = (currentAttack.targetChannel % 13) + 1;
+        setChannel(currentAttack.targetChannel);
+        return;
+    }
+}
+
+bool WiFiToolsApp::handleCommonTouch(TouchPoint touch) {
+    // Handle back button
+    if (showBackButton && touchInterface.isPointInRect(touch, 5, 5, 40, 20)) {
+        // Signal to app manager to go back
+        return false; // Let BaseApp handle it
+    }
+    
+    // Handle settings button (top right)
+    if (touchInterface.isPointInRect(touch, SCREEN_WIDTH - 40, 5, 35, 20)) {
+        // Toggle settings menu
+        return true;
+    }
+    
+    return false;
 }
 
 // ========================================
@@ -932,7 +1062,11 @@ void WiFiToolsApp::setMode(WiFiMode mode) {
             startNetworkScan();
             break;
         case WIFI_MONITOR:
+        case WIFI_HANDSHAKE:
             // Will be started when user presses start
+            break;
+        case WIFI_AP_CLONE:
+            // Evil twin setup
             break;
         default:
             break;
@@ -1125,4 +1259,230 @@ void WiFiToolsApp::clearCapturedData() {
     ui.packetsSent = 0;
     ui.packetsReceived = 0;
     debugLog("Captured data cleared");
+}
+
+// ========================================
+// OPTIONAL BASEAPP METHODS IMPLEMENTATION
+// ========================================
+
+bool WiFiToolsApp::saveState() {
+    DynamicJsonDocument doc(4096);
+    
+    doc["current_mode"] = (int)ui.currentMode;
+    doc["selected_network"] = ui.selectedNetwork;
+    doc["scan_active"] = ui.scanActive;
+    doc["sort_by_rssi"] = ui.sortByRSSI;
+    doc["channel_filter"] = ui.channelFilter;
+    doc["show_details"] = ui.showDetails;
+    
+    String filePath = getAppDataPath() + "/state.json";
+    File file = SD.open(filePath, FILE_WRITE);
+    if (!file) return false;
+    
+    serializeJson(doc, file);
+    file.close();
+    debugLog("WiFiTools state saved");
+    return true;
+}
+
+bool WiFiToolsApp::loadState() {
+    String filePath = getAppDataPath() + "/state.json";
+    if (!SD.exists(filePath)) return false;
+    
+    File file = SD.open(filePath, FILE_READ);
+    if (!file) return false;
+    
+    DynamicJsonDocument doc(4096);
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    
+    if (error) return false;
+    
+    ui.currentMode = (WiFiMode)doc["current_mode"] | WIFI_SCANNER;
+    ui.selectedNetwork = doc["selected_network"] | 0;
+    ui.scanActive = doc["scan_active"] | false;
+    ui.sortByRSSI = doc["sort_by_rssi"] | true;
+    ui.channelFilter = doc["channel_filter"] | 0;
+    ui.showDetails = doc["show_details"] | false;
+    
+    debugLog("WiFiTools state loaded");
+    return true;
+}
+
+bool WiFiToolsApp::handleMessage(AppMessage message) {
+    switch (message.type) {
+        case MSG_ENTROPY_UPDATE:
+            // Could use entropy for random MAC generation
+            break;
+        case MSG_WIFI_NETWORK_FOUND:
+            // Network found by another app
+            break;
+    }
+    return false;
+}
+
+// ========================================
+// MISSING PRIVATE METHOD IMPLEMENTATIONS
+// ========================================
+
+void WiFiToolsApp::sendDeauthPacket(uint8_t* targetMAC, uint8_t* sourceMAC, uint8_t* bssid) {
+    // Deauth frame construction
+    // This is a placeholder - real implementation requires raw 802.11 frame injection
+    ui.packetsSent++;
+}
+
+void WiFiToolsApp::sendFakeBeacon(String ssid, uint8_t channel) {
+    // Fake beacon frame construction
+    // This is a placeholder - real implementation requires raw 802.11 frame injection
+    ui.packetsSent++;
+}
+
+bool WiFiToolsApp::startEvilTwin(String targetSSID) {
+    // Evil twin AP creation
+    // This is a placeholder - requires full AP mode with captive portal
+    debugLog("Evil twin requested for: " + targetSSID);
+    return false;
+}
+
+void WiFiToolsApp::scanForClients() {
+    // Scan for clients associated with selected networks
+    // This is handled in packet monitor mode
+}
+
+void WiFiToolsApp::processScanResult(int networkIndex) {
+    // Process individual scan result
+    // Handled in updateScanResults()
+}
+
+void WiFiToolsApp::drawNetworkDetails(uint8_t networkIndex) {
+    if (networkIndex >= networkCount) return;
+    
+    NetworkInfo& network = networks[networkIndex];
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(5, 150, "SSID: " + network.ssid, COLOR_WHITE);
+    displayManager.drawText(5, 165, "BSSID: " + network.bssid, COLOR_LIGHT_GRAY);
+    displayManager.drawText(5, 180, "Channel: " + String(network.channel) + "  RSSI: " + String(network.rssi) + "dBm", COLOR_GREEN_PHOS);
+    displayManager.drawText(5, 195, "Security: " + getSecurityString(network.security), COLOR_WHITE);
+}
+
+void WiFiToolsApp::drawClientList() {
+    displayManager.setFont(FONT_SMALL);
+    if (clientCount == 0) {
+        displayManager.drawTextCentered(0, 100, SCREEN_WIDTH, "No clients detected", COLOR_LIGHT_GRAY);
+        return;
+    }
+    
+    for (uint8_t i = 0; i < clientCount && i < 10; i++) {
+        int y = 25 + i * 15;
+        displayManager.drawText(5, y, clients[i].mac, COLOR_WHITE);
+        displayManager.drawText(180, y, String(clients[i].rssi) + "dBm", COLOR_GREEN_PHOS);
+    }
+}
+
+void WiFiToolsApp::drawAttackStatus() {
+    if (ui.attackActive) {
+        displayManager.drawText(5, 130, "ATTACK ACTIVE", COLOR_RED_GLOW);
+        displayManager.drawText(5, 145, "Packets: " + String(ui.packetsSent), COLOR_GREEN_PHOS);
+    }
+}
+
+void WiFiToolsApp::drawChannelGraph() {
+    // Simple channel utilization graph
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(5, 150, "Channel Graph", COLOR_WHITE);
+    // Placeholder for channel activity visualization
+}
+
+void WiFiToolsApp::drawPacketStats() {
+    displayManager.setFont(FONT_SMALL);
+    displayManager.drawText(5, 165, "RX: " + String(ui.packetsReceived), COLOR_GREEN_PHOS);
+    displayManager.drawText(100, 165, "TX: " + String(ui.packetsSent), COLOR_RED_GLOW);
+}
+
+void WiFiToolsApp::selectTarget(uint8_t networkIndex) {
+    if (networkIndex < networkCount) {
+        ui.selectedNetwork = networkIndex;
+        debugLog("Target selected: " + networks[networkIndex].ssid);
+    }
+}
+
+void WiFiToolsApp::filterByChannel(uint8_t channel) {
+    ui.channelFilter = channel;
+    debugLog("Channel filter: " + String(channel == 0 ? "All" : String(channel)));
+}
+
+void WiFiToolsApp::saveCapturedData() {
+    exportNetworkList("captured_networks.json");
+    // Also export clients and packets if implemented
+}
+
+uint16_t WiFiToolsApp::calculateChecksum(uint8_t* data, uint16_t length) {
+    uint16_t sum = 0;
+    for (uint16_t i = 0; i < length; i++) {
+        sum += data[i];
+    }
+    return sum;
+}
+
+bool WiFiToolsApp::isValidMAC(String mac) {
+    if (mac.length() != 17) return false;
+    for (int i = 0; i < 17; i++) {
+        if (i % 3 == 2) {
+            if (mac[i] != ':') return false;
+        } else {
+            char c = mac[i];
+            if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool WiFiToolsApp::exportCapturedPackets(String filename) {
+    String filePath = getAppDataPath() + "/" + filename;
+    File file = SD.open(filePath, FILE_WRITE);
+    if (!file) {
+        debugLog("Failed to create packet export file");
+        return false;
+    }
+    
+    DynamicJsonDocument doc(8192);
+    doc["capture_time"] = millis();
+    doc["packet_count"] = ui.packetsReceived;
+    doc["client_count"] = clientCount;
+    
+    JsonArray clientsArray = doc.createNestedArray("clients");
+    for (uint8_t i = 0; i < clientCount; i++) {
+        JsonObject clientObj = clientsArray.createNestedObject();
+        clientObj["mac"] = clients[i].mac;
+        clientObj["bssid"] = clients[i].associatedBSSID;
+        clientObj["rssi"] = clients[i].rssi;
+        clientObj["last_seen"] = clients[i].lastSeen;
+    }
+    
+    serializeJson(doc, file);
+    file.close();
+    debugLog("Captured packets exported: " + filename);
+    return true;
+}
+
+void WiFiToolsApp::captureHandshakes(bool enable) {
+    // Handshake capture requires monitor mode and EAPOL frame filtering
+    debugLog("Handshake capture: " + String(enable ? "enabled" : "disabled"));
+}
+
+void WiFiToolsApp::drawCommonUI() {
+    // Draw common UI elements (mode indicator, battery, etc.)
+    displayManager.setFont(FONT_SMALL);
+    
+    // Mode indicator
+    const char* modeNames[] = {"SCANNER", "DEAUTH", "BEACON", "MONITOR", "EVIL TWIN", "HANDSHAKE"};
+    String modeName = (ui.currentMode < 6) ? modeNames[ui.currentMode] : "UNKNOWN";
+    displayManager.drawText(SCREEN_WIDTH - 80, 5, modeName, COLOR_GREEN_PHOS);
+    
+    // SD card indicator
+    if (SD.cardType() != CARD_NONE) {
+        displayManager.drawText(SCREEN_WIDTH - 20, 5, "SD", COLOR_GREEN_PHOS);
+    }
 }

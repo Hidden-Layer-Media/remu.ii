@@ -150,18 +150,24 @@ private:
     void drawDeauthMode();
     void drawBeaconSpamMode();
     void drawMonitorMode();
+    void drawEvilTwinMode();
+    void drawHandshakeMode();
     void drawNetworkList();
     void drawNetworkDetails(uint8_t networkIndex);
     void drawClientList();
     void drawAttackStatus();
     void drawChannelGraph();
     void drawPacketStats();
+    void drawCommonUI();
     
     // Private methods - Controls
     void handleScannerTouch(TouchPoint touch);
     void handleDeauthTouch(TouchPoint touch);
     void handleBeaconTouch(TouchPoint touch);
     void handleMonitorTouch(TouchPoint touch);
+    void handleEvilTwinTouch(TouchPoint touch);
+    void handleHandshakeTouch(TouchPoint touch);
+    bool handleCommonTouch(TouchPoint touch);
     void toggleNetworkSelection(uint8_t networkIndex);
     void selectTarget(uint8_t networkIndex);
     
@@ -209,10 +215,10 @@ public:
     void onResume() override;
     bool saveState() override;
     bool loadState() override;
-    bool handleMessage(AppMessage message, void* data = nullptr) override;
+    bool handleMessage(AppMessage message) override;
     
     // Settings menu support
-    uint8_t getSettingsCount() const override { return 6; }
+    uint8_t getSettingsCount() const override { return 8; }
     String getSettingName(uint8_t index) const override;
     void handleSetting(uint8_t index) override;
     
