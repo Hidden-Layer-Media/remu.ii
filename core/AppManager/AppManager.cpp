@@ -1,5 +1,5 @@
 #include "AppManager.h"
-#include "../../apps/CarCloner/CarClonerFull.h"
+#include "../../apps/CarCloner/CarCloner.h"
 #include "../../apps/BLEScanner/BLEScanner.h"
 #include "../../apps/PreqScanner/FreqScannerFull.h"
 #include "../../apps/EntropyBeacon/EntropyBeacon.h"
@@ -355,7 +355,7 @@ bool AppManager::loadApp(uint8_t appIndex) {
         appInstance = new BLEScanner();
         Serial.println("[AppManager] BLEScanner app instantiated");
     } else if (appName == "CarCloner") {
-        appInstance = new CarClonerApp();
+        appInstance = new CarCloner();
         Serial.println("[AppManager] CarCloner app instantiated");
     } else if (appName == "FreqScanner") {
         appInstance = new FreqScannerApp();
