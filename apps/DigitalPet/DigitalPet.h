@@ -194,11 +194,12 @@ private:
     void memoryFromJson(JsonDocument& doc);
     
     // Private methods - Visual Effects
-    void drawCorruptedText(String text, int16_t x, int16_t y, uint16_t color);
-    void drawStaticNoise(int16_t x, int16_t y, int16_t w, int16_t h);
-    void drawEntropyVisualization();
-    
-    // Animation definitions
+        void drawCorruptedText(String text, int16_t x, int16_t y, uint16_t color);
+        void drawStaticNoise(int16_t x, int16_t y, int16_t w, int16_t h);
+        void drawEntropyVisualization();
+        void debugLog(String message);
+
+        // Animation definitions
     static AnimationFrame idleAnimation[];
     static AnimationFrame happyAnimation[];
     static AnimationFrame sadAnimation[];

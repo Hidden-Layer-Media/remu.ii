@@ -7,6 +7,11 @@
 #include <esp_wifi.h>
 #include <ArduinoJson.h>
 
+// Debug logging macro
+#ifndef debugLog
+#define debugLog(msg) Serial.println(msg)
+#endif
+
 // ========================================
 // WiFiTools - Network hacking utilities for remu.ii
 // SSID scanning, deauth attacks, fake AP creation, packet monitoring

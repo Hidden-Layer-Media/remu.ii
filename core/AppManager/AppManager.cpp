@@ -4,8 +4,8 @@
 #include "../../apps/PreqScanner/FreqScannerFull.h"
 #include "../../apps/EntropyBeacon/EntropyBeacon.h"
 #include "../../apps/Sequencer/SequencerFull.h"
-#include "../../apps/WifiTools/WiFiToolsStub.h"
-#include "../../apps/DigitalPet/DigitalPetStub.h"
+#include "../../apps/WifiTools/WiFiTools.h"
+#include "../../apps/DigitalPet/DigitalPet.h"
 
 // Built-in icon data (16x16 1-bit bitmaps)
 const uint8_t AppManager::ICON_SYSTEM[32] = {
