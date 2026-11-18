@@ -1,7 +1,7 @@
 #include "AppManager.h"
 #include "../../apps/CarCloner/CarCloner.h"
 #include "../../apps/BLEScanner/BLEScanner.h"
-#include "../../apps/PreqScanner/FreqScannerFull.h"
+#include "../../apps/PreqScanner/FreqScanner.h"
 #include "../../apps/EntropyBeacon/EntropyBeacon.h"
 #include "../../apps/Sequencer/Sequencer.h"
 #include "../../apps/WifiTools/WiFiTools.h"
@@ -216,7 +216,7 @@ void AppManager::registerBuiltinApps() {
     registerApp("CarCloner", "CarClonerApp", "/apps/CarCloner/");
     
     // FreqScanner
-    registerApp("FreqScanner", "FreqScannerApp", "/apps/FreqScanner/");
+    registerApp("FreqScanner", "FreqScanner", "/apps/FreqScanner/");
     
     // EntropyBeacon
     registerApp("EntropyBeacon", "EntropyBeaconApp", "/apps/EntropyBeacon/");
@@ -358,7 +358,7 @@ bool AppManager::loadApp(uint8_t appIndex) {
         appInstance = new CarCloner();
         Serial.println("[AppManager] CarCloner app instantiated");
     } else if (appName == "FreqScanner") {
-        appInstance = new FreqScannerApp();
+        appInstance = new FreqScanner();
         Serial.println("[AppManager] FreqScanner app instantiated");
     } else if (appName == "EntropyBeacon") {
         appInstance = new EntropyBeaconApp();
@@ -794,7 +794,7 @@ void AppManager::registerSequencerApp()   { registerApp("Sequencer",     "Sequen
 void AppManager::registerWiFiToolsApp()   { registerApp("WiFiTools",     "WiFiToolsApp",   "/apps/WiFiTools/"); }
 void AppManager::registerBLEScannerApp()  { registerApp("BLEScanner",    "BLEScannerApp",  "/apps/BLEScanner/"); }
 void AppManager::registerCarClonerApp()   { registerApp("CarCloner",     "CarClonerApp",   "/apps/CarCloner/"); }
-void AppManager::registerFreqScannerApp() { registerApp("FreqScanner",   "FreqScannerApp", "/apps/FreqScanner/"); }
+void AppManager::registerFreqScannerApp() { registerApp("FreqScanner", "FreqScanner", "/apps/FreqScanner/"); }
 void AppManager::registerEntropyBeaconApp() { registerApp("EntropyBeacon", "EntropyBeaconApp", "/apps/EntropyBeacon/"); }
 
 AppRegistryEntry AppManager::getAppInfo(uint8_t index) const {
