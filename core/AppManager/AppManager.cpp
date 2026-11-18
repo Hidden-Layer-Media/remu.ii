@@ -3,7 +3,7 @@
 #include "../../apps/BLEScanner/BLEScannerFull.h"
 #include "../../apps/PreqScanner/FreqScannerFull.h"
 #include "../../apps/EntropyBeacon/EntropyBeacon.h"
-#include "../../apps/Sequencer/SequencerFull.h"
+#include "../../apps/Sequencer/Sequencer.h"
 #include "../../apps/WifiTools/WiFiTools.h"
 #include "../../apps/DigitalPet/DigitalPet.h"
 

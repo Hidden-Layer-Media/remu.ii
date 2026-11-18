@@ -186,6 +186,7 @@ private:
     void applyDistortion(uint16_t* buffer, uint16_t length, uint8_t amount);
     void applyBitcrush(uint16_t* buffer, uint16_t length, uint8_t bits);
     void applyDelay(uint16_t* buffer, uint16_t length, uint16_t delayTime);
+    void applyPitchShift(uint16_t* buffer, uint16_t length, int8_t semitones);
     
     // UI layout constants
     static const int16_t GRID_MARGIN = 10;
@@ -212,7 +213,7 @@ public:
     void onResume() override;
     bool saveState() override;
     bool loadState() override;
-    bool handleMessage(AppMessage message, void* data = nullptr) override;
+    bool handleMessage(AppMessage message) override;
     
     // Settings menu support
     uint8_t getSettingsCount() const override { return 5; }
