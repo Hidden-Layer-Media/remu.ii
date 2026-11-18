@@ -20,6 +20,24 @@ DigitalPetApp::AnimationFrame DigitalPetApp::sadAnimation[3] = {
     {DigitalPetApp::PET_SPRITE_SAD, 800}
 };
 
+DigitalPetApp::AnimationFrame DigitalPetApp::eatingAnimation[3] = {
+    {DigitalPetApp::PET_SPRITE_EATING, 400},
+    {DigitalPetApp::PET_SPRITE_IDLE, 300},
+    {DigitalPetApp::PET_SPRITE_EATING, 400}
+};
+
+DigitalPetApp::AnimationFrame DigitalPetApp::sleepingAnimation[2] = {
+    {DigitalPetApp::PET_SPRITE_SLEEPING, 1500},
+    {DigitalPetApp::PET_SPRITE_IDLE, 500}
+};
+
+DigitalPetApp::AnimationFrame DigitalPetApp::playingAnimation[4] = {
+    {DigitalPetApp::PET_SPRITE_HAPPY, 300},
+    {DigitalPetApp::PET_SPRITE_IDLE, 200},
+    {DigitalPetApp::PET_SPRITE_HAPPY, 300},
+    {DigitalPetApp::PET_SPRITE_IDLE, 200}
+};
+
 // Sprite data (16x16 bitmaps) - Cyberpunk pet aesthetics
 const uint8_t DigitalPetApp::PET_SPRITE_IDLE[32] = {
     0x01, 0x80, 0x03, 0xC0, 0x07, 0xE0, 0x0F, 0xF0, 0x1F, 0xF8, 0x3F, 0xFC,
@@ -57,6 +75,25 @@ const uint8_t DigitalPetApp::PET_SPRITE_SICK[32] = {
     0x0F, 0xF0, 0x07, 0xE0, 0x03, 0xC0, 0x01, 0x80
 };
 
+// Accessory sprites (16x16 bitmaps)
+const uint8_t DigitalPetApp::ACCESSORY_HAT_SPRITE[32] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0xF0, 0x1F, 0xF8,
+    0x1F, 0xF8, 0x3F, 0xFC, 0x3F, 0xFC, 0x3F, 0xFC, 0x1F, 0xF8, 0x0F, 0xF0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+const uint8_t DigitalPetApp::ACCESSORY_GLASSES_SPRITE[32] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x33, 0xCC, 0x33, 0xCC,
+    0x00, 0x00, 0x33, 0xCC, 0x33, 0xCC, 0x00, 0x00, 0x33, 0xCC, 0x33, 0xCC,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+const uint8_t DigitalPetApp::ACCESSORY_BOWTIE_SPRITE[32] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x60,
+    0x1F, 0xF8, 0x06, 0x60, 0x00, 0x00, 0x06, 0x60, 0x1F, 0xF8, 0x06, 0x60,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 DigitalPetApp::DigitalPetApp() {
     setMetadata("DigitalPet", "1.0", "remu.ii", "Digital cyberpet companion", CATEGORY_GAMES, 8192);
     setRequirements(true, false, false); // Requires SD card
@@ -79,9 +116,7 @@ DigitalPetApp::DigitalPetApp() {
     // Initialize UI state
     showStats = false;
     showPetSelection = false;
-    showCustomization = false;
     firstBoot = true;
-    lastEntropyUpdate = 0;
     lastMoodUpdate = 0;
     lastAnimation = 0;
     currentAnimFrame = 0;
@@ -124,26 +159,29 @@ bool DigitalPetApp::initialize() {
 
 void DigitalPetApp::update() {
     unsigned long currentTime = millis();
-    
-    // Update entropy influence
-    if (currentTime - lastEntropyUpdate > ENTROPY_SAMPLE_INTERVAL) {
-        applyEntropyInfluence();
-        lastEntropyUpdate = currentTime;
-    }
-    
+
     // Update mood
     if (currentTime - lastMoodUpdate > 5000) { // Every 5 seconds
         updateMood();
         updateCorruption();
         lastMoodUpdate = currentTime;
     }
-    
-    // Update animation
-    if (currentTime - lastAnimation > 500) { // 2 FPS animation
-        currentAnimFrame = (currentAnimFrame + 1) % 4;
-        lastAnimation = currentTime;
-    }
-    
+
+    // Update animation system
+    updateAnimation();
+
+    // Update memory buffer (clean old memories, check for neglect)
+    updateMemoryBuffer();
+
+    // Process corruption-based evolution
+    processCorruptionEvolution();
+
+    // Update archetype-specific behavior
+    updateArchetypeBehavior();
+
+    // Process corruption effects on memory
+    processCorruptionEffects();
+
     frameCount++;
     pet.lastUpdate = currentTime;
 }
@@ -165,6 +203,9 @@ void DigitalPetApp::render() {
         // Apply corruption effects
         if (isCorrupted()) {
             drawCorruptionOverlay();
+        }
+        if (isHighlyCorrupted()) {
+            drawGlitchEffects();
         }
     }
     
@@ -268,114 +309,7 @@ void DigitalPetApp::drawPet() {
     if (isCorrupted() && (frameCount % 30 == 0)) {
         displayManager.drawGlitch(petX - 10, petY - 10, 36, 36);
     }
-}
-
-
-void DigitalPetApp::drawMoodIndicator() {
-    displayManager.setFont(FONT_SMALL);
-    String moodText = "";
-    uint16_t moodColor = COLOR_WHITE;
-    
-    switch (pet.mood) {
-        case CALM: 
-            moodText = "Calm"; 
-            moodColor = COLOR_GREEN_PHOS; 
-            break;
-        case RESTLESS: 
-            moodText = "Restless"; 
-            moodColor = COLOR_YELLOW; 
-            break;
-        case OBSESSED: 
-            moodText = "Obsessed"; 
-            moodColor = COLOR_RED_GLOW; 
-            break;
-        case GLITCHED: 
-            moodText = "GLITCHED"; 
-            moodColor = COLOR_PURPLE_GLOW; 
-            break;
-        default: 
-            moodText = "Unknown"; 
-            moodColor = COLOR_WHITE; 
-            break;
     }
-    
-    displayManager.drawText(200, 80, moodText, moodColor);
-}
-
-void DigitalPetApp::drawInteractionButtons() {
-    displayManager.setFont(FONT_SMALL);
-    
-    // Feed button
-    displayManager.drawButton(20, 200, 60, 30, "Feed", BUTTON_NORMAL, COLOR_DARK_GRAY);
-    
-    // Play button
-    displayManager.drawButton(90, 200, 60, 30, "Play", BUTTON_NORMAL, COLOR_DARK_GRAY);
-    
-    // Stats button
-    displayManager.drawButton(160, 200, 60, 30, "Stats", BUTTON_NORMAL, COLOR_DARK_GRAY);
-    
-    if (showStats) {
-        displayManager.drawButton(230, 200, 60, 30, "Back", BUTTON_NORMAL, COLOR_DARK_GRAY);
-    }
-}
-
-void DigitalPetApp::drawStatsDisplay() {
-    displayManager.setFont(FONT_MEDIUM);
-    displayManager.drawTextCentered(0, 20, SCREEN_WIDTH, "Pet Statistics", COLOR_RED_GLOW);
-    
-    displayManager.setFont(FONT_SMALL);
-    int16_t y = 50;
-    
-    displayManager.drawText(20, y, "Name: " + pet.name, COLOR_WHITE);
-    y += 15;
-    
-    displayManager.drawText(20, y, "Age: " + String(getPetAge() / 1000) + "s", COLOR_WHITE);
-    y += 15;
-    
-    displayManager.drawText(20, y, "Corruption: " + String(pet.corruptionLevel, 1) + "%", COLOR_WHITE);
-    y += 15;
-    
-    displayManager.drawText(20, y, "Interactions: " + String(pet.totalInteractions), COLOR_WHITE);
-    y += 15;
-    
-    displayManager.drawText(20, y, "Memory Count: " + String(pet.memory.size()), COLOR_WHITE);
-    y += 15;
-    
-    String archetypeText = "";
-    switch (pet.archetype) {
-        case ORACLE: archetypeText = "Oracle"; break;
-        case PARASITE: archetypeText = "Parasite"; break;
-        case MIRROR: archetypeText = "Mirror"; break;
-        default: archetypeText = "Unknown"; break;
-    }
-    displayManager.drawText(20, y, "Type: " + archetypeText, COLOR_WHITE);
-}
-
-void DigitalPetApp::drawReactiveRoom() {
-    // Simple room background based on theme
-    switch (currentRoomTheme) {
-        case THEME_LOVING:
-            displayManager.drawRetroRect(10, 40, SCREEN_WIDTH-20, SCREEN_HEIGHT-80, COLOR_DARK_GRAY, false);
-            break;
-        case THEME_GLITCHED:
-            displayManager.drawRetroRect(10, 40, SCREEN_WIDTH-20, SCREEN_HEIGHT-80, COLOR_RED_GLOW, false);
-            displayManager.drawGlitch(10, 40, SCREEN_WIDTH-20, SCREEN_HEIGHT-80);
-            break;
-        case THEME_NEEDY:
-            displayManager.drawRetroRect(10, 40, SCREEN_WIDTH-20, SCREEN_HEIGHT-80, COLOR_YELLOW, false);
-            break;
-        case THEME_PARANOID:
-            displayManager.drawRetroRect(10, 40, SCREEN_WIDTH-20, SCREEN_HEIGHT-80, COLOR_PURPLE_GLOW, false);
-            break;
-    }
-}
-
-void DigitalPetApp::drawCorruptionOverlay() {
-    if (frameCount % 60 == 0) { // Occasional corruption effects
-        displayManager.drawNoise(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (uint8_t)(pet.corruptionLevel * 10));
-    }
-}
-
 
 void DigitalPetApp::updateMood() {
     float entropy = getCurrentEntropy();
@@ -634,19 +568,6 @@ String DigitalPetApp::getArchetypeResponse(String interaction) {
         default:
             return "...";
     }
-}
-
-void DigitalPetApp::applyEntropyInfluence() {
-    // This is now handled in updateMood() and updateCorruption()
-    // Keep for backward compatibility but redirect
-    updateMood();
-    updateCorruption();
-}
-
-void DigitalPetApp::handleStatDecay() {
-    // In new system, decay is handled through corruption and memory system
-    // This method is kept for compatibility but functionality moved to updateCorruption()
-    updateCorruption();
 }
 
 void DigitalPetApp::checkPetHealth() {
@@ -1255,64 +1176,85 @@ void DigitalPetApp::drawInteractionButtons() {
     int16_t buttonW = 60;
     int16_t buttonH = 20;
     int16_t spacing = 5;
-    
+
     displayManager.setFont(FONT_SMALL);
-    
+
     // Feed button
     displayManager.drawButton(10, buttonY, buttonW, buttonH, "Feed");
-    
-    // Play button  
+
+    // Play button 
     displayManager.drawButton(10 + buttonW + spacing, buttonY, buttonW, buttonH, "Play");
-    
+
     // Sleep button
     displayManager.drawButton(10 + 2 * (buttonW + spacing), buttonY, buttonW, buttonH, "Sleep");
-    
+
     // Stats button
     displayManager.drawButton(10 + 3 * (buttonW + spacing), buttonY, buttonW, buttonH, "Stats");
 }
 
-void DigitalPetApp::drawBackground() {
-    // Draw retro background pattern
-    displayManager.drawASCIIBorder(5, 5, SCREEN_WIDTH - 10, SCREEN_HEIGHT - 50, COLOR_DARK_GRAY);
+// ========================================
+// FILE I/O SYSTEM
+// ========================================
+    BaseApp::onPause();
+    savePetData();
+    debugLog("App paused, pet data saved");
 }
 
-void DigitalPetApp::drawPetRoom() {
-    // Legacy method - functionality moved to drawReactiveRoom()
-    drawReactiveRoom();
+void DigitalPetApp::onResume() {
+    BaseApp::onResume();
+    debugLog("App resumed");
 }
 
-void DigitalPetApp::drawASCIIMood(int16_t x, int16_t y, PetMood mood) {
-    displayManager.setFont(FONT_SMALL);
-    uint16_t color = COLOR_WHITE;
-    String symbol = ":)";
-    
-    switch (mood) {
-        case CALM:
-            symbol = ":)";
-            color = COLOR_GREEN_PHOS;
+bool DigitalPetApp::saveState() {
+    return savePetData();
+}
+
+bool DigitalPetApp::loadState() {
+    return loadPetData();
+}
+
+const uint8_t* DigitalPetApp::getIcon() const {
+    return PET_SPRITE_IDLE;
+}
+
+uint8_t DigitalPetApp::getSettingsCount() const {
+    return 4;
+}
+
+String DigitalPetApp::getSettingName(uint8_t index) const {
+    switch (index) {
+        case 0: return "Reset Pet";
+        case 1: return "Set Corruption";
+        case 2: return "Debug Memory";
+        case 3: return "Debug State";
+        default: return "";
+    }
+}
+
+void DigitalPetApp::handleSetting(uint8_t index) {
+    switch (index) {
+        case 0: // Reset Pet
+            debugResetPet();
             break;
-        case RESTLESS:
-            symbol = ":/";
-            color = COLOR_YELLOW;
+        case 1: // Set Corruption
+            debugSetCorruption(0.5f);
             break;
-        case OBSESSED:
-            symbol = "O_O";
-            color = COLOR_RED_GLOW;
+        case 2: // Debug Memory
+            debugPrintMemory();
             break;
-        case GLITCHED:
-            symbol = "@_@";
-            color = COLOR_PURPLE_GLOW;
+        case 3: // Debug State
+            debugPrintState();
             break;
     }
-    
-    displayManager.drawText(x, y, symbol, color);
 }
 
 // ========================================
-// MISSING BASEAPP METHOD IMPLEMENTATIONS
+// MISSING METHOD IMPLEMENTATIONS
 // ========================================
 
-bool DigitalPetApp::handleMessage(AppMessage message) {
+void DigitalPetApp::showPetStats() {
+    showStats = true;
+}
     // Handle inter-app messages
     switch (message.type) {
         case MSG_ENTROPY_UPDATE:
@@ -1682,100 +1624,6 @@ void DigitalPetApp::debugPrintState() {
 
 void DigitalPetApp::showPetStats() {
     showStats = true;
-}
-
-void DigitalPetApp::drawPetSprite(int16_t x, int16_t y) {
-    // Alias for drawAnimatedSprite for compatibility
-    drawAnimatedSprite(x, y);
-}
-
-void DigitalPetApp::drawCorruptedSprite(int16_t x, int16_t y) {
-    // Draw sprite with corruption effects
-    const uint8_t* spriteData = PET_SPRITE_IDLE;
-    if (currentAnimation && currentAnimFrame < animationFrameCount) {
-        spriteData = currentAnimation[currentAnimFrame].spriteData;
-    }
-    
-    uint16_t color = COLOR_RED_GLOW; // Corrupted color
-    if (isHighlyCorrupted()) {
-        // Heavy corruption - alternating colors
-        color = (frameCount % 4 < 2) ? COLOR_RED_GLOW : COLOR_PURPLE_GLOW;
-    }
-    
-    displayManager.drawIcon(x, y, spriteData, color);
-}
-
-void DigitalPetApp::drawRoomTheme(RoomTheme theme) {
-    // This functionality is now handled in drawReactiveRoom()
-    // Keep for compatibility
-    drawReactiveRoom();
-}
-
-void DigitalPetApp::drawOracleElements() {
-    int16_t petX = SCREEN_WIDTH / 2 - 16;
-    int16_t petY = SCREEN_HEIGHT / 2 - 16;
-    
-    if (getCurrentEntropy() > 0.7f) {
-        displayManager.setFont(FONT_SMALL);
-        displayManager.drawText(petX - 20, petY, "※", COLOR_PURPLE_GLOW);
-        displayManager.drawText(petX + 35, petY, "※", COLOR_PURPLE_GLOW);
-        displayManager.drawText(petX + 8, petY - 20, "◊", COLOR_BLUE_CYBER);
-    }
-}
-
-void DigitalPetApp::drawParasiteElements() {
-    int16_t petX = SCREEN_WIDTH / 2 - 16;
-    int16_t petY = SCREEN_HEIGHT / 2 - 16;
-    
-    // Draw battery drain indicator
-    if (std::find(pet.traits.begin(), pet.traits.end(), NEEDY) != pet.traits.end()) {
-        displayManager.drawText(petX + 20, petY - 10, "⚡", COLOR_RED_GLOW);
-    }
-    
-    // Draw clinging tendrils when highly corrupted
-    if (isHighlyCorrupted()) {
-        displayManager.drawRetroLine(petX, petY + 16, petX - 10, petY + 25, COLOR_RED_GLOW);
-        displayManager.drawRetroLine(petX + 16, petY + 16, petX + 26, petY + 25, COLOR_RED_GLOW);
-    }
-}
-
-void DigitalPetApp::drawMirrorElements() {
-    int16_t petX = SCREEN_WIDTH / 2 - 16;
-    int16_t petY = SCREEN_HEIGHT / 2 - 16;
-    
-    // Draw reflection/echo effects
-    if (pet.mood == RESTLESS) {
-        // Draw shadow/mirror image slightly offset
-        displayManager.drawIcon(petX + 2, petY + 2, PET_SPRITE_IDLE, COLOR_DARK_GRAY);
-    }
-    
-    // Draw paranoid surveillance symbols
-    if (std::find(pet.traits.begin(), pet.traits.end(), PARANOID) != pet.traits.end()) {
-        displayManager.drawText(petX - 15, petY - 15, "👁", COLOR_BLUE_CYBER);
-    }
-}
-
-void DigitalPetApp::drawArchetypeSprite(int16_t x, int16_t y, PetArchetype archetype, PetMood mood) {
-    // Choose sprite based on archetype and mood
-    const uint8_t* sprite = PET_SPRITE_IDLE;
-    uint16_t color = COLOR_WHITE;
-    
-    switch (archetype) {
-        case ORACLE:
-            sprite = (mood == OBSESSED) ? PET_SPRITE_HAPPY : PET_SPRITE_IDLE;
-            color = COLOR_PURPLE_GLOW;
-            break;
-        case PARASITE:
-            sprite = (mood == GLITCHED) ? PET_SPRITE_SAD : PET_SPRITE_IDLE;
-            color = COLOR_RED_GLOW;
-            break;
-        case MIRROR:
-            sprite = (mood == RESTLESS) ? PET_SPRITE_HAPPY : PET_SPRITE_IDLE;
-            color = COLOR_BLUE_CYBER;
-            break;
-    }
-    
-    displayManager.drawIcon(x, y, sprite, color);
 }
 
 JsonDocument DigitalPetApp::memoryToJson() {

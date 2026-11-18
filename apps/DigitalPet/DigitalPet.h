@@ -17,7 +17,6 @@
 #define MAX_MEMORY_ENTRIES 50
 #define CORRUPTION_THRESHOLD_LOW 0.3f
 #define CORRUPTION_THRESHOLD_HIGH 0.7f
-#define ENTROPY_SAMPLE_INTERVAL 1000  // ms between entropy readings
 
 // New pet mood states - more psychological than physical
 enum PetMood {
@@ -99,9 +98,7 @@ private:
     // UI state
     bool showStats;
     bool showPetSelection;
-    bool showCustomization;  // Missing declaration - used in cpp
     bool firstBoot;
-    unsigned long lastEntropyUpdate;
     unsigned long lastMoodUpdate;
     unsigned long lastAnimation;
     uint8_t currentAnimFrame;
@@ -128,7 +125,6 @@ private:
     // Private methods - Mood & Corruption System
     void updateMood();
     void updateCorruption();
-    void applyEntropyInfluence();
     float getCurrentEntropy();
     void processCorruptionEffects();
     bool isCorrupted() { return pet.corruptionLevel > CORRUPTION_THRESHOLD_LOW; }
@@ -159,32 +155,26 @@ private:
     
     // Private methods - Rendering
     void drawPet();
-    void drawPetSprite(int16_t x, int16_t y);
-    void drawCorruptedSprite(int16_t x, int16_t y);
     void drawMoodIndicator();
     void drawStatsDisplay();
     void drawInteractionButtons();
     void drawReactiveRoom();
-    void drawRoomTheme(RoomTheme theme);
-    void drawGlitchEffects();
     void drawCorruptionOverlay();
-    
-    // Private methods - Archetype-specific rendering
-    void drawOracleElements();
-    void drawParasiteElements();
-    void drawMirrorElements();
-    void drawArchetypeSprite(int16_t x, int16_t y, PetArchetype archetype, PetMood mood);
-    
+    void drawCorruptedText(String text, int16_t x, int16_t y, uint16_t color);
+    void drawStaticNoise(int16_t x, int16_t y, int16_t w, int16_t h);
+    void drawEntropyVisualization();
+    void debugLog(String message);
+
     // Private methods - Animation
     void updateAnimation();
     void setAnimation(AnimationFrame* frames, uint8_t frameCount, bool loop = true);
     void drawAnimatedSprite(int16_t x, int16_t y);
-    
+
     // Private methods - Touch handling
     void setupTouchZones();
     int8_t getTouchedZone(TouchPoint touch);
     void handleZoneTouch(int8_t zone);
-    
+
     // Private methods - File I/O (Updated)
     bool loadPetData();
     bool savePetData();
@@ -192,14 +182,8 @@ private:
     bool validateSaveData(JsonDocument& doc);
     JsonDocument memoryToJson();
     void memoryFromJson(JsonDocument& doc);
-    
-    // Private methods - Visual Effects
-        void drawCorruptedText(String text, int16_t x, int16_t y, uint16_t color);
-        void drawStaticNoise(int16_t x, int16_t y, int16_t w, int16_t h);
-        void drawEntropyVisualization();
-        void debugLog(String message);
 
-        // Animation definitions
+    // Animation definitions
     static AnimationFrame idleAnimation[];
     static AnimationFrame happyAnimation[];
     static AnimationFrame sadAnimation[];
@@ -238,7 +222,7 @@ public:
     void onResume() override;
     bool saveState() override;
     bool loadState() override;
-    bool handleMessage(int messageType, void* data = nullptr) override;
+    bool handleMessage(AppMessage message) override;
     
     // Settings menu support
     uint8_t getSettingsCount() const override { return 4; }
