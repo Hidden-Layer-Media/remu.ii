@@ -1,6 +1,6 @@
 #include "AppManager.h"
 #include "../../apps/CarCloner/CarClonerFull.h"
-#include "../../apps/BLEScanner/BLEScannerFull.h"
+#include "../../apps/BLEScanner/BLEScanner.h"
 #include "../../apps/PreqScanner/FreqScannerFull.h"
 #include "../../apps/EntropyBeacon/EntropyBeacon.h"
 #include "../../apps/Sequencer/Sequencer.h"
@@ -352,7 +352,7 @@ bool AppManager::loadApp(uint8_t appIndex) {
         appInstance = new WiFiToolsApp();
         Serial.println("[AppManager] WiFiTools app instantiated");
     } else if (appName == "BLEScanner") {
-        appInstance = new BLEScannerApp();
+        appInstance = new BLEScanner();
         Serial.println("[AppManager] BLEScanner app instantiated");
     } else if (appName == "CarCloner") {
         appInstance = new CarClonerApp();
