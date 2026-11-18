@@ -327,10 +327,6 @@ void DisplayManager::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, ui
     tft->drawLine(x0, y0, x1, y1, color);
 }
 
-Adafruit_ILI9341* DisplayManager::getTFT() {
-    return tft;
-}
-
 void DisplayManager::drawTerminalText(int16_t x, int16_t y, String text, uint16_t color) {
     if (!initialized || !tft) return;
     

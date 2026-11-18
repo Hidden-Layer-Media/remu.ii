@@ -649,7 +649,7 @@ bool AppManager::hasEnoughMemoryForApp(uint8_t appIndex) {
     return (availableMemory >= required + 5000); // 5KB safety margin
 }
 
-int8_t AppManager::findAppByName(String name) {
+int8_t AppManager::findAppByName(String name) const {
     for (uint8_t i = 0; i < registeredAppCount; i++) {
         if (appRegistry[i].name.equals(name)) {
             return i;

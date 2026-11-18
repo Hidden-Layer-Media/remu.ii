@@ -8,8 +8,8 @@
 #include <ArduinoJson.h>
 
 // Debug logging macro
-#ifndef debugLog
-#define debugLog(msg) Serial.println(msg)
+#ifndef DBG_LOG
+#define DBG_LOG(msg) do { Serial.println(msg); } while(0)
 #endif
 
 // ========================================

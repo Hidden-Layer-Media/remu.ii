@@ -76,7 +76,7 @@ struct PetState {
 };
 
 // Touch zones for interaction
-struct TouchZone {
+struct DigitalPet_TouchZone {
     int16_t x, y, w, h;
     String action;
     bool enabled;
@@ -106,7 +106,7 @@ private:
     unsigned long frameCount;  // Missing declaration - used for glitch effects
     
     // Touch zones
-    TouchZone touchZones[8];
+    DigitalPet_TouchZone touchZones[8];
     int8_t activeTouchZone;
     
     // Animation data
@@ -163,7 +163,7 @@ private:
     void drawCorruptedText(String text, int16_t x, int16_t y, uint16_t color);
     void drawStaticNoise(int16_t x, int16_t y, int16_t w, int16_t h);
     void drawEntropyVisualization();
-    void debugLog(String message);
+    void dbgLog(String message);
 
     // Private methods - Animation
     void updateAnimation();

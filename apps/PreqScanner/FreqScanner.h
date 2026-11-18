@@ -28,7 +28,7 @@
 #define DEFAULT_SAMPLE_RATE SAMPLE_RATE_22K
 
 // Window function types
-enum WindowType {
+enum FreqScanner_WindowType {
     WINDOW_RECTANGULAR,
     WINDOW_HAMMING,
     WINDOW_BLACKMAN,
@@ -47,33 +47,33 @@ enum FrequencyRange {
 };
 
 // Display view modes
-enum ViewMode {
-    VIEW_SPECTRUM,        // Real-time spectrum display
-    VIEW_WATERFALL,       // Time-frequency waterfall
-    VIEW_DUAL,            // Spectrum + waterfall split
-    VIEW_RECORDING,       // Recording interface
-    VIEW_GENERATOR,       // Signal generator
-    VIEW_SETTINGS         // Configuration panel
+enum FreqScanner_ViewMode {
+    FREQSCANNER_VIEW_SPECTRUM,        // Real-time spectrum display
+    FREQSCANNER_VIEW_WATERFALL,       // Time-frequency waterfall
+    FREQSCANNER_VIEW_DUAL,            // Spectrum + waterfall split
+    FREQSCANNER_VIEW_RECORDING,       // Recording interface
+    FREQSCANNER_VIEW_GENERATOR,       // Signal generator
+    FREQSCANNER_VIEW_SETTINGS         // Configuration panel
 };
 
 // Touch interaction zones
-enum TouchZone {
-    ZONE_NONE,
-    ZONE_SPECTRUM_AREA,
-    ZONE_WATERFALL_AREA,
-    ZONE_FREQUENCY_AXIS,
-    ZONE_AMPLITUDE_AXIS,
-    ZONE_CONTROL_PANEL,
-    ZONE_BACK_BUTTON,
-    ZONE_VIEW_TOGGLE,
-    ZONE_RANGE_BUTTON,
-    ZONE_RECORD_BUTTON,
-    ZONE_GENERATOR_BUTTON,
-    ZONE_SETTINGS_BUTTON,
-    ZONE_ZOOM_IN,
-    ZONE_ZOOM_OUT,
-    ZONE_MARKER_1,
-    ZONE_MARKER_2
+enum FreqScanner_TouchZone {
+    FREQSCANNER_ZONE_NONE,
+    FREQSCANNER_ZONE_SPECTRUM_AREA,
+    FREQSCANNER_ZONE_WATERFALL_AREA,
+    FREQSCANNER_ZONE_FREQUENCY_AXIS,
+    FREQSCANNER_ZONE_AMPLITUDE_AXIS,
+    FREQSCANNER_ZONE_CONTROL_PANEL,
+    FREQSCANNER_ZONE_BACK_BUTTON,
+    FREQSCANNER_ZONE_VIEW_TOGGLE,
+    FREQSCANNER_ZONE_RANGE_BUTTON,
+    FREQSCANNER_ZONE_RECORD_BUTTON,
+    FREQSCANNER_ZONE_GENERATOR_BUTTON,
+    FREQSCANNER_ZONE_SETTINGS_BUTTON,
+    FREQSCANNER_ZONE_ZOOM_IN,
+    FREQSCANNER_ZONE_ZOOM_OUT,
+    FREQSCANNER_ZONE_MARKER_1,
+    FREQSCANNER_ZONE_MARKER_2
 };
 
 // Peak detection structure
@@ -93,7 +93,7 @@ struct SpectralPeak {
 struct FFTProcessor {
     uint16_t size;                    // Current FFT size
     uint32_t sampleRate;              // Sampling rate in Hz
-    WindowType windowType;            // Window function type
+    FreqScanner_WindowType windowType;            // Window function type
     float* inputBuffer;               // Time domain input
     float* windowBuffer;              // Window function coefficients
     std::complex<float>* fftBuffer;   // Complex FFT buffer
@@ -215,7 +215,7 @@ struct FrequencyMarker {
 struct FreqScannerConfig {
     uint16_t fftSize;                 // FFT size
     uint32_t sampleRate;              // Sampling rate
-    WindowType windowType;            // Window function
+    FreqScanner_WindowType windowType;            // Window function
     FrequencyRange freqRange;         // Frequency range preset
     float customFreqMin;              // Custom range minimum (Hz)
     float customFreqMax;              // Custom range maximum (Hz)
@@ -225,7 +225,7 @@ struct FreqScannerConfig {
     bool enablePeakDetection;         // Enable automatic peak detection
     bool enableAveraging;             // Enable spectrum averaging
     uint8_t averagingCount;           // Number of spectra to average
-    ViewMode defaultView;             // Default view mode
+    FreqScanner_ViewMode defaultView;             // Default view mode
     bool autoRecord;                  // Auto-record interesting signals
     String dataDirectory;             // Data storage directory
     
@@ -233,7 +233,7 @@ struct FreqScannerConfig {
                          windowType(WINDOW_HAMMING), freqRange(RANGE_AUDIO_FULL),
                          customFreqMin(20), customFreqMax(20000), smoothingFactor(0.7),
                          peakThreshold(-40), maxPeaks(10), enablePeakDetection(true),
-                         enableAveraging(true), averagingCount(4), defaultView(VIEW_SPECTRUM),
+                         enableAveraging(true), averagingCount(4), defaultView(FREQSCANNER_VIEW_SPECTRUM),
                          autoRecord(false), dataDirectory("/data/freqscanner") {}
 };
 
@@ -253,8 +253,8 @@ struct FreqScannerStats {
 };
 
 // UI state structure
-struct UIState {
-    ViewMode currentView;             // Current display view
+struct FreqScanner_UIState {
+    FreqScanner_ViewMode currentView;             // Current display view
     TouchPoint lastTouch;             // Last touch coordinates
     unsigned long lastTouchTime;      // Last touch timestamp
     int selectedPeak;                 // Selected peak index (-1 = none)
@@ -266,7 +266,7 @@ struct UIState {
     uint16_t cursorX, cursorY;        // Measurement cursor position
     bool measurementMode;             // Measurement cursor active
     
-    UIState() : currentView(VIEW_SPECTRUM), lastTouchTime(0), selectedPeak(-1),
+    FreqScanner_UIState() : currentView(FREQSCANNER_VIEW_SPECTRUM), lastTouchTime(0), selectedPeak(-1),
                showGrid(true), showMarkers(true), showPeakLabels(true),
                zoomLevel(1.0), panOffsetHz(0), cursorX(0), cursorY(0),
                measurementMode(false) {}
@@ -290,7 +290,7 @@ private:
     // Configuration and statistics
     FreqScannerConfig config;
     FreqScannerStats stats;
-    UIState uiState;
+    FreqScanner_UIState uiState;
     
     // Timing and control
     unsigned long lastFFTTime;        // Last FFT processing time
@@ -326,7 +326,7 @@ private:
     void estimateNoiseFloor();
     
     // ===== WINDOW FUNCTION METHODS =====
-    void generateWindow(WindowType type);
+    void generateWindow(FreqScanner_WindowType type);
     float hammingWindow(int n, int N);
     float blackmanWindow(int n, int N);
     float hanningWindow(int n, int N);
@@ -398,7 +398,7 @@ private:
     float pixelToAmplitude(uint16_t pixel);
     
     // ===== TOUCH HANDLING METHODS =====
-    TouchZone identifyTouchZone(TouchPoint touch);
+    FreqScanner_TouchZone identifyTouchZone(TouchPoint touch);
     void handleSpectrumTouch(TouchPoint touch);
     void handleWaterfallTouch(TouchPoint touch);
     void handleControlPanelTouch(TouchPoint touch);
@@ -488,7 +488,7 @@ public:
 #define FREQ_SCANNER_DATA_DIR   "/data/freqscanner"
 #define FREQ_SCANNER_CONFIG     "/settings/freqscanner.cfg"
 #define RECORDINGS_DIR          "/data/freqscanner/recordings"
-#define SAMPLES_DIR             "/data/freqscanner/samples"
+#define FREQSCANNER_SAMPLES_DIR             "/data/freqscanner/samples"
 
 // Icon data (16x16 pixels, 1-bit per pixel)
 extern const uint8_t freq_scanner_icon[32];

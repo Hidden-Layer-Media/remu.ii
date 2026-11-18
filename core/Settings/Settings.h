@@ -23,13 +23,13 @@ enum SettingType {
 
 // Setting categories for organization
 enum SettingCategory {
-    CATEGORY_AUDIO,
-    CATEGORY_DISPLAY,
-    CATEGORY_SYSTEM,
-    CATEGORY_INTERFACE,
-    CATEGORY_SECURITY,
-    CATEGORY_PERFORMANCE,
-    CATEGORY_DEBUG
+    SC_AUDIO,
+    SC_DISPLAY,
+    SC_SYSTEM,
+    SC_INTERFACE,
+    SC_SECURITY,
+    SC_PERFORMANCE,
+    SC_DEBUG
 };
 
 // Individual setting definition
@@ -74,7 +74,7 @@ private:
     static Settings* instance;
     
     // Settings storage
-    Setting* settings;
+    Setting* _settings;
     uint8_t settingCount;
     uint8_t maxSettings;
     

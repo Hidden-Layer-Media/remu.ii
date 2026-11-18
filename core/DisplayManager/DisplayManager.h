@@ -83,6 +83,10 @@ struct ProgressBar {
     bool showText;
 };
 
+// Forward declaration for singleton accessor
+class DisplayManager;
+extern DisplayManager displayManager;
+
 class DisplayManager {
 private:
     Adafruit_ILI9341* tft;
@@ -102,8 +106,7 @@ private:
     // Private drawing methods
     void drawBorder3D(int16_t x, int16_t y, int16_t w, int16_t h, bool inset);
     void drawPixelPattern(int16_t x, int16_t y, int16_t w, int16_t h, uint8_t pattern);
-    void drawGlowEffect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
-    
+
 public:
     DisplayManager();
     ~DisplayManager();
@@ -118,6 +121,9 @@ public:
     void setBrightness(uint8_t level);
     uint8_t getBrightness() const { return brightness; }
     void setRotation(uint8_t rotation);
+    
+    // Glow effect for UI highlights
+    void drawGlowEffect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
     
     // Color management
     void setBackgroundColor(uint16_t color) { backgroundColor = color; }
@@ -213,8 +219,5 @@ public:
     int16_t getWidth() const { return SCREEN_WIDTH; }
     int16_t getHeight() const { return SCREEN_HEIGHT; }
 };
-
-// Global display manager instance
-extern DisplayManager displayManager;
 
 #endif // DISPLAY_MANAGER_H

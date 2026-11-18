@@ -574,7 +574,7 @@ std::vector<FileInfo> FileSystem::listFilesDetailed(const String& directory) {
         info.size = file.size();
         info.isDirectory = file.isDirectory();
         info.lastModified = file.getLastWrite();
-        info.created = file.getCreationTime();
+        info.created = 0; // getCreationTime() not available in ESP32 Arduino core
         
         files.push_back(info);
         file.close();

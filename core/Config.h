@@ -14,7 +14,7 @@
 #define SCREEN_WIDTH        320
 #define SCREEN_HEIGHT       240
 #define SCREEN_ROTATION     1       // Landscape orientation
-#define DISPLAY_BRIGHTNESS  200     // 0-255, default brightness
+#define DEFAULT_DISPLAY_BRIGHTNESS  200     // 0-255, default brightness
 #define BACKLIGHT_TIMEOUT   30000   // Auto-dim timeout (ms)
 
 // Touch Interface Configuration

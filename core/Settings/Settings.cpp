@@ -42,14 +42,14 @@ const String Settings::DEBUG_SHOW_FPS = "debug.show_fps";
 const String Settings::DEBUG_MEMORY_INFO = "debug.memory_info";
 
 Settings::Settings() :
-    settings(nullptr),
+    _settings(nullptr),
     settingCount(0),
     maxSettings(20),
     configPath("/settings/config.json"),
     backupPath("/settings/config.bak"),
     changeCallback(nullptr)
 {
-    settings = new Setting[maxSettings];
+    _settings = new Setting[maxSettings];
 }
 
 Settings& Settings::getInstance() {
@@ -61,7 +61,7 @@ Settings& Settings::getInstance() {
 
 void Settings::cleanup() {
     if (instance) {
-        delete[] instance->settings;
+        delete[] instance->_settings;
         delete instance;
         instance = nullptr;
     }
@@ -92,7 +92,7 @@ void Settings::initializeDefaultSettings() {
     // Audio settings
     registerSetting({
         AUDIO_ENABLED, "Audio Enabled", "Enable/disable audio output",
-        SETTING_BOOL, CATEGORY_AUDIO,
+        SETTING_BOOL, SC_AUDIO,
         true, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         true, 0, 0.0f, "", 0x0000,
@@ -101,7 +101,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         AUDIO_VOLUME, "Volume", "Audio output volume (0-127)",
-        SETTING_INT, CATEGORY_AUDIO,
+        SETTING_INT, SC_AUDIO,
         false, 80, 0.0f, "", 0x0000,
         0, 127, nullptr, 0,
         false, 80, 0.0f, "", 0x0000,
@@ -111,7 +111,7 @@ void Settings::initializeDefaultSettings() {
     // Display settings
     registerSetting({
         DISPLAY_BRIGHTNESS, "Brightness", "Screen brightness (0-255)",
-        SETTING_INT, CATEGORY_DISPLAY,
+        SETTING_INT, SC_DISPLAY,
         false, 200, 0.0f, "", 0x0000,
         0, 255, nullptr, 0,
         false, 200, 0.0f, "", 0x0000,
@@ -120,7 +120,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         DISPLAY_TIMEOUT, "Screen Timeout", "Auto-dim timeout in seconds",
-        SETTING_INT, CATEGORY_DISPLAY,
+        SETTING_INT, SC_DISPLAY,
         false, 30, 0.0f, "", 0x0000,
         5, 300, nullptr, 0,
         false, 30, 0.0f, "", 0x0000,
@@ -129,7 +129,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         DISPLAY_ANIMATIONS, "Animations", "Enable UI animations",
-        SETTING_BOOL, CATEGORY_DISPLAY,
+        SETTING_BOOL, SC_DISPLAY,
         true, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         true, 0, 0.0f, "", 0x0000,
@@ -139,7 +139,7 @@ void Settings::initializeDefaultSettings() {
     // System settings
     registerSetting({
         SYSTEM_AUTO_SAVE, "Auto Save", "Automatically save app states",
-        SETTING_BOOL, CATEGORY_SYSTEM,
+        SETTING_BOOL, SC_SYSTEM,
         true, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         true, 0, 0.0f, "", 0x0000,
@@ -148,7 +148,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         SYSTEM_DEBUG_MODE, "Debug Mode", "Enable debug output",
-        SETTING_BOOL, CATEGORY_SYSTEM,
+        SETTING_BOOL, SC_SYSTEM,
         false, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         false, 0, 0.0f, "", 0x0000,
@@ -158,7 +158,7 @@ void Settings::initializeDefaultSettings() {
     // Interface settings
     registerSetting({
         INTERFACE_TOUCH_SENSITIVITY, "Touch Sensitivity", "Touch pressure threshold",
-        SETTING_INT, CATEGORY_INTERFACE,
+        SETTING_INT, SC_INTERFACE,
         false, 200, 0.0f, "", 0x0000,
         50, 500, nullptr, 0,
         false, 200, 0.0f, "", 0x0000,
@@ -167,7 +167,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         INTERFACE_BUTTON_SOUNDS, "Button Sounds", "Play sounds on button press",
-        SETTING_BOOL, CATEGORY_INTERFACE,
+        SETTING_BOOL, SC_INTERFACE,
         true, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         true, 0, 0.0f, "", 0x0000,
@@ -177,7 +177,7 @@ void Settings::initializeDefaultSettings() {
     // Performance settings
     registerSetting({
         PERFORMANCE_FRAME_RATE, "Target FPS", "Target frame rate (15-60)",
-        SETTING_INT, CATEGORY_PERFORMANCE,
+        SETTING_INT, SC_PERFORMANCE,
         false, 30, 0.0f, "", 0x0000,
         15, 60, nullptr, 0,
         false, 30, 0.0f, "", 0x0000,
@@ -186,7 +186,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         PERFORMANCE_BATTERY_SAVER, "Battery Saver", "Enable battery saving mode",
-        SETTING_BOOL, CATEGORY_PERFORMANCE,
+        SETTING_BOOL, SC_PERFORMANCE,
         false, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         false, 0, 0.0f, "", 0x0000,
@@ -196,7 +196,7 @@ void Settings::initializeDefaultSettings() {
     // Debug settings
     registerSetting({
         DEBUG_SERIAL_OUTPUT, "Serial Debug", "Enable serial debug output",
-        SETTING_BOOL, CATEGORY_DEBUG,
+        SETTING_BOOL, SC_DEBUG,
         true, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         true, 0, 0.0f, "", 0x0000,
@@ -205,7 +205,7 @@ void Settings::initializeDefaultSettings() {
     
     registerSetting({
         DEBUG_SHOW_FPS, "Show FPS", "Display FPS counter",
-        SETTING_BOOL, CATEGORY_DEBUG,
+        SETTING_BOOL, SC_DEBUG,
         false, 0, 0.0f, "", 0x0000,
         0, 1, nullptr, 0,
         false, 0, 0.0f, "", 0x0000,
@@ -281,7 +281,7 @@ String Settings::saveToJson() {
     DynamicJsonDocument doc(4096);
     
     for (uint8_t i = 0; i < settingCount; i++) {
-        Setting& setting = settings[i];
+        Setting& setting = _settings[i];
         
         switch (setting.type) {
             case SETTING_BOOL:
@@ -325,7 +325,7 @@ bool Settings::registerSetting(const Setting& setting) {
         return false;
     }
     
-    settings[settingCount] = setting;
+    _settings[settingCount] = setting;
     settingCount++;
     
     return true;
@@ -333,8 +333,8 @@ bool Settings::registerSetting(const Setting& setting) {
 
 Setting* Settings::findSetting(const String& key) {
     for (uint8_t i = 0; i < settingCount; i++) {
-        if (settings[i].key.equals(key)) {
-            return &settings[i];
+        if (_settings[i].key.equals(key)) {
+            return &_settings[i];
         }
     }
     return nullptr;
@@ -468,7 +468,7 @@ void Settings::setChangeCallback(SettingsChangeCallback callback) {
 
 bool Settings::resetToDefaults() {
     for (uint8_t i = 0; i < settingCount; i++) {
-        Setting& setting = settings[i];
+        Setting& setting = _settings[i];
         
         switch (setting.type) {
             case SETTING_BOOL:
@@ -495,13 +495,13 @@ bool Settings::resetToDefaults() {
 
 String Settings::getCategoryName(SettingCategory category) {
     switch (category) {
-        case CATEGORY_AUDIO: return "Audio";
-        case CATEGORY_DISPLAY: return "Display";
-        case CATEGORY_SYSTEM: return "System";
-        case CATEGORY_INTERFACE: return "Interface";
-        case CATEGORY_SECURITY: return "Security";
-        case CATEGORY_PERFORMANCE: return "Performance";
-        case CATEGORY_DEBUG: return "Debug";
+        case SC_AUDIO: return "Audio";
+        case SC_DISPLAY: return "Display";
+        case SC_SYSTEM: return "System";
+        case SC_INTERFACE: return "Interface";
+        case SC_SECURITY: return "Security";
+        case SC_PERFORMANCE: return "Performance";
+        case SC_DEBUG: return "Debug";
         default: return "Unknown";
     }
 }
@@ -509,7 +509,7 @@ String Settings::getCategoryName(SettingCategory category) {
 void Settings::printSettings() {
     Serial.println("[Settings] Current Settings:");
     for (uint8_t i = 0; i < settingCount; i++) {
-        Setting& setting = settings[i];
+        Setting& setting = _settings[i];
         Serial.printf("  %s = ", setting.key.c_str());
         
         switch (setting.type) {
@@ -538,8 +538,8 @@ bool Settings::createBackup() { return filesystem.copyFile(configPath, backupPat
 bool Settings::restoreBackup() { return filesystem.copyFile(backupPath, configPath) && loadSettings(); }
 bool Settings::unregisterSetting(const String& key) {
     for (uint8_t i = 0; i < settingCount; i++) {
-        if (settings[i].key.equals(key)) {
-            for (uint8_t j = i; j < settingCount - 1; j++) settings[j] = settings[j+1];
+        if (_settings[i].key.equals(key)) {
+            for (uint8_t j = i; j < settingCount - 1; j++) _settings[j] = _settings[j+1];
             settingCount--;
             return true;
         }
@@ -568,7 +568,7 @@ SettingType Settings::getType(const String& key) {
 }
 SettingCategory Settings::getCategory(const String& key) {
     Setting* s = findSetting(key);
-    return s ? s->category : CATEGORY_SYSTEM;
+    return s ? s->category : SC_SYSTEM;
 }
 String Settings::getName(const String& key) {
     Setting* s = findSetting(key);
@@ -589,13 +589,13 @@ bool Settings::isReadOnly(const String& key) {
 uint8_t Settings::getSettingsInCategory(SettingCategory category, String* keys, uint8_t maxKeys) {
     uint8_t count = 0;
     for (uint8_t i = 0; i < settingCount && count < maxKeys; i++) {
-        if (settings[i].category == category) keys[count++] = settings[i].key;
+        if (_settings[i].category == category) keys[count++] = _settings[i].key;
     }
     return count;
 }
 uint8_t Settings::getAllSettings(String* keys, uint8_t maxKeys) {
     uint8_t count = min(settingCount, maxKeys);
-    for (uint8_t i = 0; i < count; i++) keys[i] = settings[i].key;
+    for (uint8_t i = 0; i < count; i++) keys[i] = _settings[i].key;
     return count;
 }
 String Settings::getSettingsInfo() {

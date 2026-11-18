@@ -41,26 +41,26 @@ enum DeviceStatus {
 };
 
 // UI View modes
-enum ViewMode {
-    VIEW_DEVICE_LIST,
-    VIEW_DEVICE_DETAILS,
-    VIEW_ANOMALY_ALERTS,
-    VIEW_STATISTICS,
-    VIEW_LABELING,
-    VIEW_LOGS
+enum BLEScanner_ViewMode {
+    BLESCANNER_VIEW_DEVICE_LIST,
+    BLESCANNER_VIEW_DEVICE_DETAILS,
+    BLESCANNER_VIEW_ANOMALY_ALERTS,
+    BLESCANNER_VIEW_STATISTICS,
+    BLESCANNER_VIEW_LABELING,
+    BLESCANNER_VIEW_LOGS
 };
 
 // Touch interaction zones
-enum TouchZone {
-    ZONE_NONE,
-    ZONE_DEVICE_LIST,
-    ZONE_BACK_BUTTON,
-    ZONE_SCAN_TOGGLE,
-    ZONE_VIEW_TOGGLE,
-    ZONE_DEVICE_ENTRY,
-    ZONE_LABEL_BUTTON,
-    ZONE_LOG_BUTTON,
-    ZONE_ALERT_DISMISS
+enum BLEScanner_TouchZone {
+    BLESCANNER_ZONE_NONE,
+    BLESCANNER_ZONE_DEVICE_LIST,
+    BLESCANNER_ZONE_BACK_BUTTON,
+    BLESCANNER_ZONE_SCAN_TOGGLE,
+    BLESCANNER_ZONE_VIEW_TOGGLE,
+    BLESCANNER_ZONE_DEVICE_ENTRY,
+    BLESCANNER_ZONE_LABEL_BUTTON,
+    BLESCANNER_ZONE_LOG_BUTTON,
+    BLESCANNER_ZONE_ALERT_DISMISS
 };
 
 // RSSI history for anomaly detection
@@ -149,8 +149,8 @@ struct ScanStatistics {
 };
 
 // UI state management
-struct UIState {
-    ViewMode currentView;
+struct BLEScanner_UIState {
+    BLEScanner_ViewMode currentView;
     int selectedDevice;
     int scrollOffset;
     bool scanningActive;
@@ -160,7 +160,7 @@ struct UIState {
     TouchPoint lastTouch;
     unsigned long lastTouchTime;
     
-    UIState() : currentView(VIEW_DEVICE_LIST), selectedDevice(-1),
+    BLEScanner_UIState() : currentView(BLESCANNER_VIEW_DEVICE_LIST), selectedDevice(-1),
         scrollOffset(0), scanningActive(false), showAnomalyAlert(false),
         lastUIUpdate(0), lastTouchTime(0) {}
 };
@@ -210,7 +210,7 @@ private:
     unsigned long lastLogWrite;
     
     // UI state
-    UIState uiState;
+    BLEScanner_UIState uiState;
     ScanConfig config;
     
     // Colors for UI
@@ -282,7 +282,7 @@ private:
     String formatDuration(unsigned long duration);
     
     // ===== TOUCH HANDLING METHODS =====
-    TouchZone identifyTouchZone(TouchPoint touch);
+    BLEScanner_TouchZone identifyTouchZone(TouchPoint touch);
     void handleDeviceListTouch(TouchPoint touch);
     void handleDeviceDetailsTouch(TouchPoint touch);
     void handleLabelingTouch(TouchPoint touch);
@@ -349,11 +349,11 @@ public:
 // Constants for UI layout
 #define DEVICE_LIST_ITEM_HEIGHT     24
 #define DEVICE_LIST_MAX_VISIBLE     8
-#define HEADER_HEIGHT              20
-#define STATUS_BAR_HEIGHT          16
-#define SCROLL_BAR_WIDTH           8
-#define ICON_SIZE                  12
-#define MARGIN                     4
+#define BLESCANNER_HEADER_HEIGHT              20
+#define BLESCANNER_STATUS_BAR_HEIGHT          16
+#define BLESCANNER_SCROLL_BAR_WIDTH           8
+#define BLESCANNER_ICON_SIZE                  12
+#define BLESCANNER_MARGIN                     4
 
 // File paths
 #define BLE_SCANNER_DATA_DIR       "/data/blescanner"

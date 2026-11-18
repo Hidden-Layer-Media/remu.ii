@@ -115,7 +115,12 @@ void SystemCore::shutdown() {
 }
 
 void SystemCore::initializeWatchdog() {
-    esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
+    esp_task_wdt_config_t wdt_config = {
+        .timeout_ms = WATCHDOG_TIMEOUT * 1000,
+        .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
+        .trigger_panic = true
+    };
+    esp_task_wdt_init(&wdt_config);
     esp_task_wdt_add(NULL); // Add current task to watchdog
     Serial.printf("[SystemCore] Watchdog initialized (%d seconds timeout)\n", WATCHDOG_TIMEOUT);
 }
@@ -261,7 +266,12 @@ void SystemCore::feedWatchdog() {
 }
 
 void SystemCore::enableWatchdog() {
-    esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
+    esp_task_wdt_config_t wdt_config = {
+        .timeout_ms = WATCHDOG_TIMEOUT * 1000,
+        .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
+        .trigger_panic = true
+    };
+    esp_task_wdt_init(&wdt_config);
     esp_task_wdt_add(NULL);
 }
 

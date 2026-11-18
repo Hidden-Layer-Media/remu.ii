@@ -42,7 +42,9 @@ enum AppState {
     APP_RUNNING,
     APP_PAUSED,
     APP_ERROR,
-    APP_EXITING
+    APP_EXITING,
+    APP_INITIALIZING = APP_LOADING,
+    APP_CLEANUP = APP_EXITING
 };
 
 // App message types for inter-app communication
@@ -68,15 +70,27 @@ struct AppMessage {
     unsigned long timestamp;
 };
 
+// Debug logging macro
+#ifndef debugLog
+#define DBG_LOG(msg) do { Serial.println(msg); } while(0)
+#endif
+
 class BaseApp {
 protected:
     AppMetadata metadata;
     AppState currentState;
     unsigned long lastUpdateTime;
     bool needsRedraw;
+    uint16_t backgroundColor;
+    uint16_t foregroundColor;
+    bool showBackButton;
+    bool showStatusBar;
+    unsigned long frameCount;
     
 public:
-    BaseApp() : currentState(APP_UNLOADED), lastUpdateTime(0), needsRedraw(true) {}
+    BaseApp() : currentState(APP_UNLOADED), lastUpdateTime(0), needsRedraw(true),
+                backgroundColor(0), foregroundColor(0xFFFF), showBackButton(false),
+                showStatusBar(false), frameCount(0) {}
     virtual ~BaseApp() {}
     
     // Pure virtual methods - must be implemented by derived classes
@@ -96,6 +110,7 @@ public:
     virtual bool saveState() { return true; }
     virtual bool loadState() { return true; }
     virtual bool handleMessage(AppMessage message) { return false; }
+    virtual bool handleMessage(AppMessage message, void* data) { return handleMessage(message); }
     virtual bool handleMessage(int messageType, void* data = nullptr) {
         AppMessage msg = {static_cast<AppMessageType>(messageType), data, 0, millis()};
         return handleMessage(msg);
@@ -106,20 +121,33 @@ public:
     virtual void setAppManager(void* manager) { /* Store app manager reference */ }
     
     // Getters
-    AppMetadata getMetadata() const { return metadata; }
-    AppState getState() const { return currentState; }
-    String getName() const { return metadata.name; }
+    virtual String getName() const { return metadata.name; }
     size_t getMemoryRequirement() const { return metadata.memoryRequirement; }
     bool getNeedsRedraw() const { return needsRedraw; }
     
     // State management
     void setState(AppState state) { currentState = state; }
+    AppState getState() const { return currentState; }
     void setNeedsRedraw(bool redraw = true) { needsRedraw = redraw; }
+    
+    // Common UI helpers
+    void setColors(uint16_t bg, uint16_t fg) { /* default no-op, override if needed */ }
+    void setShowBackButton(bool show) { /* default no-op */ }
+    void setShowStatusBar(bool show) { /* default no-op */ }
     
     // Utility methods
     bool isRunning() const { return currentState == APP_RUNNING; }
     bool isPaused() const { return currentState == APP_PAUSED; }
     bool hasError() const { return currentState == APP_ERROR; }
+    unsigned long getRunTime() const { return millis(); }
+    size_t getMemoryUsage() const { return 0; }
+    float getFPS() const { return 0.0f; }
+    
+    // File system helpers
+    bool isSDAvailable() const { return true; }
+    String getAppDataPath() const { return "/data"; }
+    bool createAppDataDir() const { return true; }
+    void trackMemoryUsage() {}
     
 protected:
     // Helper methods for derived classes

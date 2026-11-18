@@ -28,7 +28,7 @@
 #define RF_FREQ_915MHZ          915.0
 
 // Signal modulation types
-enum ModulationType {
+enum CarCloner_ModulationType {
     MOD_ASK,        // Amplitude Shift Keying
     MOD_FSK,        // Frequency Shift Keying  
     MOD_PSK,        // Phase Shift Keying
@@ -39,7 +39,7 @@ enum ModulationType {
 };
 
 // Capture modes
-enum CaptureMode {
+enum CarCloner_CaptureMode {
     CAPTURE_SINGLE,     // Single shot capture
     CAPTURE_CONTINUOUS, // Continuous recording
     CAPTURE_TRIGGERED,  // Triggered on signal detection
@@ -47,7 +47,7 @@ enum CaptureMode {
 };
 
 // Application view states
-enum ViewState {
+enum CarCloner_ViewState {
     VIEW_MAIN_MENU,
     VIEW_CAPTURE,
     VIEW_SIGNAL_LIBRARY,
@@ -58,7 +58,7 @@ enum ViewState {
 };
 
 // Touch interaction zones
-enum TouchZone {
+enum CarCloner_TouchZone {
     ZONE_NONE,
     ZONE_CAPTURE_BUTTON,
     ZONE_REPLAY_BUTTON,
@@ -73,25 +73,25 @@ enum TouchZone {
 };
 
 // RF signal sample structure
-struct RFSample {
+struct CarCloner_RFSample {
     uint16_t amplitude;     // Signal amplitude (12-bit ADC)
     uint16_t timing;        // Sample timing (microseconds)
     bool digitalLevel;      // Digital interpretation
     
-    RFSample() : amplitude(0), timing(0), digitalLevel(false) {}
-    RFSample(uint16_t amp, uint16_t time, bool level) : 
+    CarCloner_RFSample() : amplitude(0), timing(0), digitalLevel(false) {}
+    CarCloner_RFSample(uint16_t amp, uint16_t time, bool level) : 
         amplitude(amp), timing(time), digitalLevel(level) {}
 };
 
 // Complete RF signal structure
-struct RFSignal {
+struct CarCloner_RFSignal {
     char name[MAX_SIGNAL_NAME_LENGTH];
     float frequency;                    // Carrier frequency in MHz
-    ModulationType modulation;          // Modulation type
+    CarCloner_ModulationType modulation;          // Modulation type
     uint32_t sampleRate;               // Samples per second
     uint32_t duration;                 // Signal duration in microseconds
     uint16_t sampleCount;              // Number of samples
-    RFSample samples[MAX_SIGNAL_SAMPLES];
+    CarCloner_RFSample samples[MAX_SIGNAL_SAMPLES];
     
     // Metadata
     unsigned long captureTime;         // When signal was captured
@@ -106,7 +106,7 @@ struct RFSignal {
     String filePath;                  // SD card file path
     bool isSavedToSD;                // File save status
     
-    RFSignal() {
+    CarCloner_RFSignal() {
         strcpy(name, "Untitled");
         frequency = RF_FREQ_433MHZ;
         modulation = MOD_UNKNOWN;
@@ -125,26 +125,26 @@ struct RFSignal {
 };
 
 // Protocol detection results
-struct ProtocolInfo {
+struct CarCloner_ProtocolInfo {
     String protocolName;
     float confidence;       // 0.0 - 1.0 confidence level
     String description;
     std::map<String, String> parameters;
     
-    ProtocolInfo() : confidence(0.0) {}
+    CarCloner_ProtocolInfo() : confidence(0.0) {}
 };
 
 // RF hardware configuration
-struct RFConfig {
+struct CarCloner_RFConfig {
     float frequency;        // Current frequency in MHz
     uint8_t power;         // Transmission power (0-255)
     uint32_t sampleRate;   // ADC sample rate
     uint16_t sensitivity;  // Receiver sensitivity threshold
     bool autoGain;         // Automatic gain control
-    CaptureMode captureMode;
+    CarCloner_CaptureMode captureMode;
     uint32_t captureTimeout; // Timeout for triggered mode (ms)
     
-    RFConfig() {
+    CarCloner_RFConfig() {
         frequency = RF_FREQ_433MHZ;
         power = 128;  // Medium power
         sampleRate = 1000000; // 1 MHz
@@ -156,7 +156,7 @@ struct RFConfig {
 };
 
 // Capture session state
-struct CaptureSession {
+struct CarCloner_CaptureSession {
     bool isActive;
     unsigned long startTime;
     unsigned long duration;
@@ -165,12 +165,12 @@ struct CaptureSession {
     bool triggerDetected;
     String statusMessage;
     
-    CaptureSession() : isActive(false), startTime(0), duration(0),
+    CarCloner_CaptureSession() : isActive(false), startTime(0), duration(0),
         samplesCollected(0), signalStrength(-100.0), triggerDetected(false) {}
 };
 
-// Replay session state  
-struct ReplaySession {
+// Replay session state 
+struct CarCloner_ReplaySession {
     bool isActive;
     int selectedSignal;
     uint8_t repeatCount;
@@ -179,14 +179,14 @@ struct ReplaySession {
     uint32_t transmissionInterval; // ms between repeats
     String statusMessage;
     
-    ReplaySession() : isActive(false), selectedSignal(-1), repeatCount(1),
+    CarCloner_ReplaySession() : isActive(false), selectedSignal(-1), repeatCount(1),
         remainingRepeats(0), lastTransmission(0), transmissionInterval(1000) {}
 };
 
 // UI state management
-struct UIState {
-    ViewState currentView;
-    ViewState previousView;
+struct CarCloner_UIState {
+    CarCloner_ViewState currentView;
+    CarCloner_ViewState previousView;
     int selectedSignalIndex;
     int scrollOffset;
     bool showLegalWarning;
@@ -197,7 +197,7 @@ struct UIState {
     String alertMessage;
     unsigned long alertTimeout;
     
-    UIState() : currentView(VIEW_LEGAL_WARNING), previousView(VIEW_MAIN_MENU),
+    CarCloner_UIState() : currentView(VIEW_LEGAL_WARNING), previousView(VIEW_MAIN_MENU),
         selectedSignalIndex(-1), scrollOffset(0), showLegalWarning(true),
         warningAccepted(false), lastUIUpdate(0), alertTimeout(0) {}
 };
@@ -206,19 +206,19 @@ class CarCloner : public BaseApp {
 private:
     // Core RF hardware
     bool rfInitialized;
-    RFConfig rfConfig;
+    CarCloner_RFConfig rfConfig;
     
     // Signal storage
-    std::vector<RFSignal> capturedSignals;
-    RFSignal currentSignal;
+    std::vector<CarCloner_RFSignal> capturedSignals;
+    CarCloner_RFSignal currentSignal;
     uint32_t signalCount;
     
     // Session management
-    CaptureSession captureState;
-    ReplaySession replayState;
+    CarCloner_CaptureSession captureState;
+    CarCloner_ReplaySession replayState;
     
     // UI and interaction
-    UIState uiState;
+    CarCloner_UIState uiState;
     
     // File paths
     String dataDirectory;
@@ -232,12 +232,11 @@ private:
     uint8_t presetCount;
     
     // Analysis data
-    std::vector<ProtocolInfo> detectedProtocols;
+    std::vector<CarCloner_ProtocolInfo> detectedProtocols;
     
     // ===== RF HARDWARE METHODS =====
     bool initializeRFHardware();
     void shutdownRFHardware();
-    bool setFrequency(float frequency);
     bool setPowerLevel(uint8_t power);
     void setupADCForCapture();
     void setupDACForTransmission();
@@ -248,7 +247,7 @@ private:
     bool startCapture();
     void stopCapture();
     void updateCapture();
-    bool captureRFSample(RFSample& sample);
+    bool captureRFSample(CarCloner_RFSample& sample);
     bool detectSignalTrigger();
     void processAnalogSample(uint16_t adcValue, uint32_t timestamp);
     void finalizeCapture();
@@ -258,30 +257,29 @@ private:
     bool startReplay(int signalIndex);
     void stopReplay();
     void updateReplay();
-    bool transmitRFSample(const RFSample& sample);
-    bool transmitSignal(const RFSignal& signal);
+    bool transmitRFSample(const CarCloner_RFSample& sample);
+    bool transmitSignal(const CarCloner_RFSignal& signal);
     void setupTransmissionTiming();
     
     // ===== SIGNAL ANALYSIS METHODS =====
-    void analyzeSignal(RFSignal& signal);
-    void detectPulses(RFSignal& signal);
-    void calculateTiming(RFSignal& signal);
-    float calculateEntropy(const RFSignal& signal);
-    ModulationType identifyModulation(const RFSignal& signal);
-    void detectProtocols(RFSignal& signal);
-    ProtocolInfo analyzeFixedCodeProtocol(const RFSignal& signal);
-    ProtocolInfo analyzeRollingCodeProtocol(const RFSignal& signal);
-    ProtocolInfo analyzePWMProtocol(const RFSignal& signal);
+    void analyzeSignal(CarCloner_RFSignal& signal);
+    void detectPulses(CarCloner_RFSignal& signal);
+    void calculateTiming(CarCloner_RFSignal& signal);
+    float calculateEntropy(const CarCloner_RFSignal& signal);
+    CarCloner_ModulationType identifyModulation(const CarCloner_RFSignal& signal);
+    void detectProtocols(CarCloner_RFSignal& signal);
+    CarCloner_ProtocolInfo analyzeFixedCodeProtocol(const CarCloner_RFSignal& signal);
+    CarCloner_ProtocolInfo analyzeRollingCodeProtocol(const CarCloner_RFSignal& signal);
+    CarCloner_ProtocolInfo analyzePWMProtocol(const CarCloner_RFSignal& signal);
     
     // ===== FILE SYSTEM METHODS =====
     bool initializeFSStructure();
-    bool saveSignal(RFSignal& signal);
-    bool loadSignal(const String& filename, RFSignal& signal);
-    bool deleteSignal(int index);
+    bool saveSignal(CarCloner_RFSignal& signal);
+    bool loadSignal(const String& filename, CarCloner_RFSignal& signal);
     void loadSignalLibrary();
     void saveConfiguration();
     void loadConfiguration();
-    String generateSignalFilename(const RFSignal& signal);
+    String generateSignalFilename(const CarCloner_RFSignal& signal);
     
     // ===== UI RENDERING METHODS =====
     void renderLegalWarning();
@@ -297,20 +295,20 @@ private:
     void renderProgressBar(int16_t x, int16_t y, int16_t w, int16_t h, float progress);
     
     // ===== UI HELPER METHODS =====
-    void drawSignalEntry(int16_t y, const RFSignal& signal, bool selected);
+    void drawSignalEntry(int16_t y, const CarCloner_RFSignal& signal, bool selected);
     void drawFrequencySelector();
     void drawPowerSlider();
     void drawCaptureControls();
     void drawReplayControls();
-    void drawSignalWaveform(int16_t x, int16_t y, int16_t w, int16_t h, const RFSignal& signal);
+    void drawSignalWaveform(int16_t x, int16_t y, int16_t w, int16_t h, const CarCloner_RFSignal& signal);
     void drawAnalysisResults();
-    uint16_t getSignalColor(const RFSignal& signal);
+    uint16_t getSignalColor(const CarCloner_RFSignal& signal);
     String formatFrequency(float frequency);
     String formatDuration(uint32_t microseconds);
     String formatFileSize(size_t bytes);
     
     // ===== TOUCH HANDLING METHODS =====
-    TouchZone identifyTouchZone(TouchPoint touch);
+    CarCloner_TouchZone identifyTouchZone(TouchPoint touch);
     void handleMainMenuTouch(TouchPoint touch);
     void handleCaptureTouch(TouchPoint touch);
     void handleLibraryTouch(TouchPoint touch);
@@ -331,10 +329,10 @@ private:
     void initializeFrequencyPresets();
     void cleanupOldSignals();
     bool isValidFrequency(float frequency);
-    String getModulationString(ModulationType mod);
+    String getModulationString(CarCloner_ModulationType mod);
     void updateStatusMessage(const String& message);
     void showAlert(const String& message, uint32_t duration = 3000);
-    void debugPrintSignal(const RFSignal& signal);
+    void debugPrintSignal(const CarCloner_RFSignal& signal);
     
     // ===== ERROR HANDLING =====
     void handleRFError(const String& error);
@@ -371,14 +369,14 @@ public:
     bool captureSignal(const String& name = "");
     bool replaySignal(int index, uint8_t repeatCount = 1);
     bool deleteSignal(int index);
-    RFSignal getSignal(int index) const;
+    CarCloner_RFSignal getSignal(int index) const;
     void exportSignalData(int index, const String& format);
     
     // ===== CONFIGURATION =====
     void setFrequency(float freq) { rfConfig.frequency = freq; }
     void setPower(uint8_t power) { rfConfig.power = power; }
-    void setCaptureMode(CaptureMode mode) { rfConfig.captureMode = mode; }
-    RFConfig getConfiguration() const { return rfConfig; }
+    void setCaptureMode(CarCloner_CaptureMode mode) { rfConfig.captureMode = mode; }
+    CarCloner_RFConfig getConfiguration() const { return rfConfig; }
     
     // ===== SETTINGS INTERFACE =====
     uint8_t getSettingsCount() const override { return 7; }
@@ -396,7 +394,6 @@ public:
 #define SIGNAL_LIST_MAX_VISIBLE     7
 #define HEADER_HEIGHT              24
 #define STATUS_BAR_HEIGHT          20
-#define BUTTON_HEIGHT              32
 #define BUTTON_WIDTH               80
 #define MARGIN                     8
 #define WAVEFORM_HEIGHT            60
